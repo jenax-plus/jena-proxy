@@ -108,75 +108,106 @@ default graph using a SPARQL `FROM` clause. A view without `ja:graphName` uses
 the endpoint's default graph. This works with both `RDFLinkDataset` and
 `RDFLinkHTTP`; HTTP-specific dataset parameters are not required.
 
-Use local graph aliases to assemble several such views:
+This complete Fuseki configuration combines Wikidata, DBpedia and the Deutsche
+Nationalbibliothek (DNB), exposing one SPARQL query endpoint at
+`http://localhost:3030/federation/sparql`. Put jena-proxy on Fuseki's classpath
+and save the configuration as `federation.ttl`:
 
 ```turtle
-@prefix ja:  <http://jena.hpl.hp.com/2005/11/Assembler#> .
-@prefix dsg: <https://w3id.org/aksw/jena/dataset#> .
+@prefix fuseki: <http://jena.apache.org/fuseki#> .
+@prefix ja:     <http://jena.hpl.hp.com/2005/11/Assembler#> .
+@prefix dsg:    <https://w3id.org/aksw/jena/dataset#> .
 
-<#viewer> a ja:RDFDataset ;
-    ja:namedGraph [ ja:graphName <urn:service:foo> ; ja:graph <#fooView> ] ;
-    ja:namedGraph [ ja:graphName <urn:service:bar> ; ja:graph <#barView> ] .
+[] a fuseki:Server ;
+    fuseki:services ( <#service> ) .
 
-<#fooView> a ja:ViewGraph ;
-    ja:dataset <#foo> ;
-    ja:graphName <https://example.org/graphs/catalog> .
+<#service> a fuseki:Service ;
+    fuseki:name "federation" ;
+    fuseki:endpoint [
+        fuseki:operation fuseki:query ;
+        fuseki:name "sparql"
+    ] ;
+    fuseki:dataset <#dataset> .
 
-<#barView> a ja:ViewGraph ;
-    ja:dataset <#bar> .
+<#dataset> a ja:RDFDataset ;
+    ja:namedGraph [ ja:graphName <urn:service:wikidata> ; ja:graph <#wikidataView> ] ;
+    ja:namedGraph [ ja:graphName <urn:service:dbpedia> ; ja:graph <#dbpediaView> ] ;
+    ja:namedGraph [ ja:graphName <urn:service:dnb> ; ja:graph <#dnbView> ] .
 
-<#foo> a dsg:DatasetHTTP ;
-    dsg:destination "https://foo.example/sparql" .
-<#bar> a dsg:DatasetHTTP ;
-    dsg:destination "https://bar.example/sparql" .
+<#wikidataView> a ja:ViewGraph ;
+    ja:dataset <#wikidata> .
+
+<#dbpediaView> a ja:ViewGraph ;
+    ja:dataset <#dbpedia> ;
+    ja:graphName <http://dbpedia.org> .
+
+<#dnbView> a ja:ViewGraph ;
+    ja:dataset <#dnb> .
+
+<#wikidata> a dsg:DatasetHTTP ;
+    dsg:destination "https://query.wikidata.org/sparql" ;
+    dsg:querySendMode "asPostForm" .
+<#dbpedia> a dsg:DatasetHTTP ;
+    dsg:destination "https://dbpedia.org/sparql" .
+<#dnb> a dsg:DatasetHTTP ;
+    dsg:destination "https://sparql.dnb.de/api/dnbgnd" .
 ```
 
-Query a resource across selected services with a reusable query:
+Start Fuseki with:
+
+```bash
+fuseki-server --config=federation.ttl
+```
+
+Only the query operation is configured; there are no update, upload or Graph Store
+endpoints. See [Fuseki endpoint configuration](https://jena.apache.org/documentation/fuseki2/fuseki-config-endpoint)
+for the service syntax.
+
+These use the documented [Wikidata endpoint](https://www.mediawiki.org/wiki/Wikidata_Query_Service/User_Manual#SPARQL_endpoint),
+[DBpedia endpoint and graph](https://www.dbpedia.org/resources/sparql/), and
+[DNB machine endpoint](https://wiki.dnb.de/pages/viewpage.action?navigatingVersions=true&pageId=542035309).
+
+Submit this query to `/federation/sparql` to retrieve facts about Goethe using
+each dataset's resource IRI in a `GRAPH`(!) block:
 
 ```sparql
-SELECT ?service ?p ?o {
-    VALUES ?service { <urn:service:foo> <urn:service:bar> }
-    GRAPH ?service {
-        <https://example.org/resource/123> ?p ?o
+SELECT ?service ?resource ?p ?o {
+    VALUES (?service ?resource) {
+        (<urn:service:wikidata> <http://www.wikidata.org/entity/Q5879>)
+        (<urn:service:dbpedia> <http://dbpedia.org/resource/Johann_Wolfgang_von_Goethe>)
+        (<urn:service:dnb> <http://d-nb.info/gnd/118540238>)
     }
+    GRAPH ?service { ?resource ?p ?o }
 }
 ```
 
-Service-selection `VALUES` is evaluated locally. Unselected services receive
-no request. The local alias is not used as a remote graph name: the `foo`
-request selects `FROM <https://example.org/graphs/catalog>`, while `bar`
-queries its default graph. A constant `GRAPH <urn:service:foo>` delegates only
-to that service. When the enclosed pattern has no nested graph switches, it is delegated;
-joins between graphs are evaluated by Jena. Eligible counts across graph partitions are computed as
-remote partial counts and merged locally; complete eligible groups over a single
-proxy service are delegated as well.
-DISTINCT queries can also eliminate duplicates per service before transferring
-results, while retaining final duplicate elimination across services.
-ORDER BY over graph unions sorts eligible branches at their services and merges the
-sorted streams locally. Variable/constant sort keys are supported, including ASC/DESC,
-with global LIMIT/OFFSET retained. Computed keys and unsupported branch shapes keep
-local sorting. Endpoints must use compatible RDF term ordering; ties have unspecified
-relative order. Requests remain sequential.
-Correlated joins can cause additional requests per input binding; this is not
-a batched federation optimizer.
+Remove a `VALUES` row to omit that service; unselected services receive no request.
+See the [federation feature summary](#federation-feature-summary) for supported
+rewrites and their limitations.
 
-The plugin rewrites composite graph patterns to internal `SERVICE` operations
-with a query-local executor that uses `RDFLink`. These internal service IRIs
-are dispatch identifiers, not HTTP endpoints. User-written `SERVICE` bodies
-retain their own dataset scope. Fully delegated graph patterns avoid
-`Graph.find()` and `DatasetGraph.find()`.
+#### Technical details
 
-Nested `GRAPH` switches resolve against the composite dataset. Their enclosing
-graph scope is evaluated locally by Jena, while eligible inner graph patterns
-can still delegate. This fallback may use `find()` on proxy graphs and issue
-additional remote requests; nested graph queries are supported but not optimized.
+- **Graph scope:** Aliases name local graph views. DBpedia requests select
+  `FROM <http://dbpedia.org>`; Wikidata and DNB use their endpoint's default graph.
+  A constant `GRAPH <urn:service:dbpedia>` targets only DBpedia.
+- **Delegation:** Eligible graph patterns become internal `SERVICE` operations
+  executed through `RDFLink`, avoiding `Graph.find()` and `DatasetGraph.find()`.
+  Internal service IRIs identify routes; user-written `SERVICE` bodies retain
+  their own dataset scope.
+- **Local execution:** Joins between graphs run in Jena; correlated joins may issue
+  additional requests per input binding. Nested graph switches resolve against
+  the composite dataset and may fall back to `find()` and additional requests.
+- **Request settings:** Planning copies the execution request context and preserves
+  the configured optimizer without modifying the dataset context. Non-empty
+  initial bindings retain the existing evaluation path.
 
-Aggregation planning uses a copy of the execution request context and preserves any
-configured optimizer. The dataset context is not modified. No assembler opt-in is
-needed. To disable composite proxy dispatch, set the following on the outer dataset:
+#### Disabling federation
+
+Federation is enabled automatically. To disable composite proxy dispatch, set this
+context property on the outer dataset:
 
 ```turtle
-<#viewer> ja:context [
+<#dataset> ja:context [
     ja:cxtName <https://w3id.org/aksw/jena/proxy#proxyGraphsEnabled> ;
     ja:cxtValue false
 ] .
@@ -185,9 +216,9 @@ needed. To disable composite proxy dispatch, set the following on the outer data
 Programmatically, set `QueryEngineFactoryProxyGraphs.ENABLED` to `false` on the
 dataset or execution request context. Both query-engine `accept` overloads then
 decline, allowing ordinary Jena engine selection. A request setting overrides the
-dataset setting. Non-empty initial bindings retain the existing evaluation path.
+dataset setting.
 
-Current scope and limitations:
+#### Scope and limitations
 
 - Composite dispatch supports Jena's `DatasetGraphMapLink` (including the
   `ja:RDFDataset` assembler) with proxy named graphs and a local default graph.
