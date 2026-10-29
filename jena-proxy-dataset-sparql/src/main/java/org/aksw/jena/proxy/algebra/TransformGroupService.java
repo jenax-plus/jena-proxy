@@ -34,7 +34,12 @@ public class TransformGroupService extends TransformCopy {
     private final Predicate<OpService> servicePolicy;
     private final Predicate<OpGroup> groupPolicy;
 
-    /** Explicit eligibility policies for service routes and aggregate/expression capabilities. */
+    /**
+     * Explicit eligibility policies for service routes and aggregate/expression capabilities.
+     *
+     * @param servicePolicy selects the service routes eligible for delegation
+     * @param groupPolicy selects the groups whose aggregates the service can evaluate
+     */
     public TransformGroupService(Predicate<OpService> servicePolicy, Predicate<OpGroup> groupPolicy) {
         this.servicePolicy = servicePolicy;
         this.groupPolicy = groupPolicy;

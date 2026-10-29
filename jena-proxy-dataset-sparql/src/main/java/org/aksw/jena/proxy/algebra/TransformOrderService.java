@@ -40,6 +40,12 @@ import org.apache.jena.sparql.expr.ExprVars;
 public class TransformOrderService extends TransformCopy {
     private final Predicate<OpService> allowed;
 
+    /**
+     * Approve the service routes that may receive pushed ordering; the predicate also certifies
+     * endpoint ordering compatibility.
+     *
+     * @param allowed selects the service routes eligible for delegated ordering
+     */
     public TransformOrderService(Predicate<OpService> allowed) {
         this.allowed = java.util.Objects.requireNonNull(allowed);
     }

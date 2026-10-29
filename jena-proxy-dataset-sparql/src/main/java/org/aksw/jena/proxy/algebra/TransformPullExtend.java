@@ -72,11 +72,21 @@ import org.apache.jena.sparql.expr.aggregate.AggCountDistinct;
 public class TransformPullExtend extends TransformExtendCombine {
     private final RewriteVars freshVar;
 
-    /** Reserve temporary variables against the complete input algebra. */
+    /**
+     * Reserve temporary variables against the complete input algebra.
+     *
+     * @param root the algebra against which fresh variables are reserved
+     */
     public TransformPullExtend(Op root) {
         freshVar = new RewriteVars(root);
     }
 
+    /**
+     * Run the pull-extend rewrite; existing SERVICE bodies remain opaque.
+     *
+     * @param op the algebra to rewrite
+     * @return the rewritten algebra with extensions pulled
+     */
     public static Op transform(Op op) {
         Transform transform = new TransformPullExtend(op);
         Op result = Transformer.transformSkipService(transform, op);
@@ -121,6 +131,13 @@ public class TransformPullExtend extends TransformExtendCombine {
         return result;
     }
 
+    /**
+     * Pull constant assignments shared by every branch above the disjunction.
+     *
+     * @param subOps the branch operations
+     * @param toUnion rebuilds a disjunction-style operator from the rewritten branches
+     * @return the result with common constants lifted, or null when nothing can be pulled
+     */
     public Op transformDisjunction(List<Op> subOps, Function<List<Op>, Op> toUnion) {
         Op result = null; // null unless change
         VarExprList common = new VarExprList();

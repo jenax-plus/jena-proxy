@@ -36,6 +36,9 @@ import org.apache.jena.sparql.expr.NodeValue;
  * selection elsewhere in a query.
  */
 public class TransformGroupTable extends TransformCopy {
+    /** Create the transform; it holds no state. */
+    public TransformGroupTable() {}
+
     @Override
     public Op transform(OpGroup group, Op subOp) {
         if (subOp instanceof OpJoin join) {
@@ -63,7 +66,12 @@ public class TransformGroupTable extends TransformCopy {
         return assignments.isEmpty() ? other : OpExtend.create(other, assignments);
     }
 
-    /** Normalize a singleton-table join, returning the same operation when ineligible. */
+    /**
+     * Normalize a singleton-table join, returning the same operation when ineligible.
+     *
+     * @param op the operation to normalize
+     * @return the operation with a singleton-table join replaced by an Extend, or op
+     */
     public static Op normalizeSingletonJoin(Op op) {
         if (op instanceof OpJoin join) {
             Op result = normalize(join.getLeft(), join.getRight());

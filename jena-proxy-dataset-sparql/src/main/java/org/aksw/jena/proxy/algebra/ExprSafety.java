@@ -35,6 +35,9 @@ public final class ExprSafety {
      * ExprLib.isStable alone does not certify registry-backed functions or dynamic
      * calls. EXISTS/NOT EXISTS require graph-pattern/correlation analysis and are
      * conservatively barriers here, even when their surface expressions look stable.
+     *
+     * @param expr the expression to check
+     * @return true when the expression may be moved with its bindings
      */
     public static boolean isStableAndTransparent(Expr expr) {
         if (!ExprLib.isStable(expr)) return false;
@@ -45,7 +48,12 @@ public final class ExprSafety {
         return expr.isVariable() || expr.isConstant();
     }
 
-    /** Check an operand before moving bindings across its expressions. */
+    /**
+     * Check an operand before moving bindings across its expressions.
+     *
+     * @param op the operand whose expressions are checked
+     * @return true when every expression in the operand is stable and transparent
+     */
     public static boolean hasOnlyStableTransparentExpressions(Op op) {
         AtomicBoolean safe = new AtomicBoolean(true);
         ExprVisitor visitor = new ExprVisitorBase() {

@@ -34,6 +34,9 @@ import org.apache.jena.sparql.algebra.op.*;
  * subsequent algebra rewrites. Volatile and opaque sort expressions retain the ordinary sort.
  */
 public class TransformOrderUnion extends TransformCopy {
+    /** Create the transform; it holds no state. */
+    public TransformOrderUnion() {}
+
     static boolean supported(List<SortCondition> conditions) {
         // Expressions can depend on endpoint-local state even when repeatable (NOW, EXISTS,
         // custom functions). Start with variables/constants, evaluated identically at either end.

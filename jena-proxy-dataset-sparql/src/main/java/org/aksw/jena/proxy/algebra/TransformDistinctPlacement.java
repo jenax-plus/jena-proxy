@@ -47,9 +47,16 @@ import org.apache.jena.sparql.expr.Expr;
 import org.apache.jena.sparql.expr.ExprLib;
 import org.apache.jena.sparql.expr.ExprList;
 
+/**
+ * Push a DISTINCT past projections, stable extends, stable filters and nested DISTINCTs until it
+ * is placed as far below the algebra as its projected variables allow.
+ */
 public class TransformDistinctPlacement
     extends TransformCopy
 {
+    /** Create the placement transform; it holds no state. */
+    public TransformDistinctPlacement() {}
+
     @Override
     public Op transform(OpDistinct opDistinct, Op subOp) {
         Set<Var> projectVars = new LinkedHashSet<>();
@@ -241,7 +248,12 @@ public class TransformDistinctPlacement
     // Additions for jena-proxy. The placement implementation above is retained
     // from Aklakan/jena, branch 20260613-index-for-basic-distinct.
 
-    /** Run placement only; distribution remains an independent, optional rule. */
+    /**
+     * Run placement only; distribution remains an independent, optional rule.
+     *
+     * @param root the algebra to rewrite
+     * @return the rewritten algebra with the DISTINCTs placed
+     */
     public static Op rewrite(Op root) {
         return rewrite(root, false);
     }
@@ -250,6 +262,10 @@ public class TransformDistinctPlacement
      * Run placement, optionally distribute DISTINCT into union members, then place
      * the introduced branch DISTINCTs. Existing SERVICE bodies remain opaque.
      * Union distribution retains a final DISTINCT to remove cross-branch duplicates.
+     *
+     * @param root the algebra to rewrite
+     * @param distributeOverUnion whether to distribute DISTINCT into union members first
+     * @return the rewritten algebra
      */
     public static Op rewrite(Op root, boolean distributeOverUnion) {
         Op placed = org.apache.jena.sparql.algebra.Transformer.transformSkipService(

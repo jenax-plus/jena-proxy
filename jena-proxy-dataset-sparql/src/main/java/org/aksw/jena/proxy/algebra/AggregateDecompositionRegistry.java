@@ -36,14 +36,27 @@ import org.apache.jena.sparql.expr.aggregate.*;
 public class AggregateDecompositionRegistry implements AggregateDecomposition {
     private final Map<Class<? extends Aggregator>, AggregateDecomposition> entries = new HashMap<>();
 
-    /** Register or replace a decomposition. Configure the registry before using a transform. */
+    /** Create an empty registry; register rules before decomposing. */
+    public AggregateDecompositionRegistry() {}
+
+    /**
+     * Register or replace a decomposition. Configure the registry before using a transform.
+     *
+     * @param type the exact aggregator class to match
+     * @param rule the decomposition used for that class
+     * @return this registry, for chaining
+     */
     public AggregateDecompositionRegistry register(
             Class<? extends Aggregator> type, AggregateDecomposition rule) {
         entries.put(type, rule);
         return this;
     }
 
-    /** Conservative defaults: COUNT(*) and COUNT of a variable or constant. */
+    /**
+     * Conservative defaults: COUNT(*) and COUNT of a variable or constant.
+     *
+     * @return a registry that decomposes only count aggregates
+     */
     public static AggregateDecompositionRegistry counts() {
         AggregateDecompositionRegistry result = new AggregateDecompositionRegistry();
         AggregateDecomposition count =
@@ -63,6 +76,8 @@ public class AggregateDecompositionRegistry implements AggregateDecomposition {
      * rounding, overflow and type promotion can change results. ARQ propagates an unbound partial SUM
      * through the merging SUM, preserving expression/type errors instead of silently dropping the
      * failed partition.
+     *
+     * @return a count registry extended with SUM and AVG rules
      */
     public static AggregateDecompositionRegistry withNumericReassociation() {
         AggregateDecompositionRegistry result = counts();

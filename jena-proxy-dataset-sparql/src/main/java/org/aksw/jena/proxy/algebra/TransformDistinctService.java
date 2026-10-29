@@ -33,7 +33,11 @@ import org.apache.jena.sparql.algebra.op.*;
 public class TransformDistinctService extends TransformCopy {
     private final Predicate<OpService> servicePolicy;
 
-    /** Select eligible service boundaries without rewriting their existing bodies. */
+    /**
+     * Select eligible service boundaries without rewriting their existing bodies.
+     *
+     * @param servicePolicy selects the service routes eligible for delegation
+     */
     public TransformDistinctService(Predicate<OpService> servicePolicy) {
         this.servicePolicy = servicePolicy;
     }

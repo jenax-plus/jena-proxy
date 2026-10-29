@@ -32,6 +32,9 @@ import org.apache.jena.sparql.core.Var;
  * every branch. Always retains final duplicate elimination across branches.
  */
 public class TransformDistinctUnion extends TransformCopy {
+    /** Create the transform; it holds no state. */
+    public TransformDistinctUnion() {}
+
     @Override
     public Op transform(OpDistinct distinct, Op subOp) {
         Op input = subOp;

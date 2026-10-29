@@ -36,18 +36,32 @@ public class TransformGroupUnion extends TransformCopy {
     private final AggregateDecomposition decomposition;
     private final RewriteVars freshVar;
 
-    /** Reserve variables throughout the complete input algebra. */
+    /**
+     * Reserve variables throughout the complete input algebra.
+     *
+     * @param root the algebra against which fresh variables are reserved
+     */
     public TransformGroupUnion(Op root) {
         this(root, AggregateDecompositionRegistry.counts());
     }
 
-    /** Use a caller-configured decomposition policy. */
+    /**
+     * Use a caller-configured decomposition policy.
+     *
+     * @param root the algebra against which fresh variables are reserved
+     * @param decomposition the rules used to split aggregates
+     */
     public TransformGroupUnion(Op root, AggregateDecomposition decomposition) {
         this.decomposition = decomposition;
         this.freshVar = new RewriteVars(root);
     }
 
-    /** Apply the conservative count decomposition without rewriting existing SERVICE bodies. */
+    /**
+     * Apply the conservative count decomposition without rewriting existing SERVICE bodies.
+     *
+     * @param root the algebra to rewrite
+     * @return the rewritten algebra with partial and merging groups
+     */
     public static Op rewrite(Op root) {
         return Transformer.transformSkipService(new TransformGroupUnion(root), root);
     }

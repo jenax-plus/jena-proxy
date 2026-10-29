@@ -43,6 +43,9 @@ public final class AlgebraQueries {
      * Like OpAsQuery.asQuery, but explicitly project bare Group results (also under Order). OpAsQuery normally
      * expects the compiled Project/Extend/Group shape. For a bare Group its SELECT * omits aggregate
      * expressions from serialized SPARQL.
+     *
+     * @param op the operation to serialize
+     * @return a query with the group's variables and aggregate expressions explicitly projected
      */
     public static Query asQuery(Op op) {
         Query result = OpAsQuery.asQuery(op);
@@ -57,8 +60,14 @@ public final class AlgebraQueries {
         return result;
     }
 
-    /** A serializable query and its output-variable mapping back to the original algebra. */
+    /**
+     * A serializable query and its output-variable mapping back to the original algebra.
+     *
+     * @param query the renamed query suitable for remote execution
+     * @param outputMapping remote output variables back to the original algebra's variables
+     */
     public record PreparedQuery(Query query, Map<Var, Var> outputMapping) {
+        /** Copy the output mapping defensively. */
         public PreparedQuery {
             outputMapping = Map.copyOf(outputMapping);
         }
@@ -69,6 +78,9 @@ public final class AlgebraQueries {
      * explicit wire aliases. Otherwise serializers may omit their names (for example SELECT
      * (count(*)) for the internal variable ?.0). Apply outputMapping to returned bindings before
      * joining them locally.
+     *
+     * @param op the operation to rename and serialize
+     * @return the renamed query and its output-variable mapping
      */
     public static PreparedQuery prepareForRemote(Op op) {
         Set<Var> mentioned = new HashSet<>(OpVars.mentionedVars(op));

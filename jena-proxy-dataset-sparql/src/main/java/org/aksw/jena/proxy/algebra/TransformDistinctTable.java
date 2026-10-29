@@ -26,6 +26,9 @@ import org.apache.jena.sparql.algebra.op.*;
 
 /** Expose independent singleton branch bindings directly under DISTINCT (and its projection). */
 public class TransformDistinctTable extends TransformCopy {
+    /** Create the transform; it holds no state. */
+    public TransformDistinctTable() {}
+
     @Override
     public Op transform(OpDistinct distinct, Op subOp) {
         Op normalized;

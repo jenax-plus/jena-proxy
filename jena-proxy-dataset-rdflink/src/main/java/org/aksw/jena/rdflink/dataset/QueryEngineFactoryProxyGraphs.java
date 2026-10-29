@@ -74,6 +74,9 @@ import org.apache.jena.sparql.util.Symbol;
 
 /** Delegates named proxy graph patterns in a link-based composite dataset. */
 public class QueryEngineFactoryProxyGraphs implements QueryEngineFactory {
+    /** Create the factory; it holds no state. */
+    public QueryEngineFactoryProxyGraphs() {}
+
     /** Set false on the dataset or execution request to opt out of composite proxy dispatch. */
     public static final Symbol ENABLED =
             Symbol.create("https://w3id.org/aksw/jena/proxy#proxyGraphsEnabled");

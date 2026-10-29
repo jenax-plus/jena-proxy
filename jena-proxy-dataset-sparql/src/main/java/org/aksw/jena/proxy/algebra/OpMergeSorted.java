@@ -56,6 +56,13 @@ public final class OpMergeSorted extends OpExt {
     private final List<SortCondition> conditions;
     private final Op fallback;
 
+    /**
+     * Create a merge over branches that are already sorted by the shared conditions.
+     *
+     * @param branches the sorted branch operations, in merge order
+     * @param conditions the shared sort conditions the branches must satisfy
+     * @param fallback the ordinary sort used when the merge is not applicable
+     */
     public OpMergeSorted(List<Op> branches, List<SortCondition> conditions, Op fallback) {
         super("merge-sorted");
         this.branches = List.copyOf(branches);
@@ -63,7 +70,17 @@ public final class OpMergeSorted extends OpExt {
         this.fallback = java.util.Objects.requireNonNull(fallback);
     }
 
+    /**
+     * The branch operations, in merge order.
+     *
+     * @return the sorted branch operations
+     */
     public List<Op> getBranches() { return branches; }
+    /**
+     * The shared sort conditions the branches must already satisfy.
+     *
+     * @return the shared sort conditions
+     */
     public List<SortCondition> getConditions() { return conditions; }
     @Override public Op effectiveOp() { return fallback; }
     // TransformCopy delegates OpExt back to apply; do not dispatch to it recursively.

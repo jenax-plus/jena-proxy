@@ -31,15 +31,26 @@ import org.apache.jena.sparql.expr.ExprAggregator;
 /** Describes partial state, merge aggregates and optional finalization for one aggregate. */
 @FunctionalInterface
 public interface AggregateDecomposition {
-    /** Return empty if this aggregate cannot be split under the caller's assumptions. */
+    /**
+     * Return empty if this aggregate cannot be split under the caller's assumptions.
+     *
+     * @param aggregate the aggregate expression to decompose
+     * @param freshVar supplies fresh variables reserved against the caller's algebra
+     * @return a decomposition plan, or empty when no safe plan exists
+     */
     Optional<Plan> decompose(ExprAggregator aggregate, Supplier<Var> freshVar);
 
     /**
      * A final expression, when present, is assigned to the original aggregate variable after merging.
      * Otherwise the merge aggregates must bind that variable directly. Partial state must preserve
      * errors, multiplicities and empty-input behavior.
+     *
+     * @param partial per-branch aggregates evaluated on each union member
+     * @param merge aggregates that combine the partial results
+     * @param finish expression producing the final value, or null
      */
     record Plan(List<ExprAggregator> partial, List<ExprAggregator> merge, Expr finish) {
+        /** Copy both aggregate lists defensively. */
         public Plan {
             partial = List.copyOf(partial);
             merge = List.copyOf(merge);
