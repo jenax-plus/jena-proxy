@@ -19,7 +19,7 @@ These modules allow you to work with remote datasets as if they were local, whil
 - **Transparent remote access**: Use standard Jena `DatasetGraph` API
 - **SPARQL protocol support**: Query and update via HTTP SPARQL endpoints
 - **RDFLink integration**: Use Apache Jena's modern RDFLink interface
-- **High-performance federation**: Advanced query rewrites push aggregation, DISTINCT, and sorting to remote services; see the [federation feature summary](#federation-feature-summary).
+- **Profile-free federation**: Best-effort query rewrites push aggregation, DISTINCT, and sorting to remote services without requiring precomputed data profiles; see the [federation feature summary](#federation-feature-summary).
 - **Configurable transactions**: Enable/disable transactional support
 - **HTTP authentication**: Basic authentication support
 - **Jena assembler support**: Configure via Turtle configuration files
