@@ -43,6 +43,13 @@ A `DatasetGraph` implementation that uses Apache Jena's `RDFLink` interface to c
 - `DatasetAssemblerHTTP` - Jena assembler for HTTP configuration
 - `JenaPluginDatasetGraphOverRDFLink` - Auto-registration plugin
 
+## Draft algebra rewrites
+
+The SPARQL module includes an independent, opt-in `org.aksw.jena.proxy.algebra`
+package for aggregate-over-union splitting, group delegation to services, and
+pulling extensions above operators. See [rules, policies and composition](jena-proxy-dataset-sparql/README-algebra.md).
+The composite proxy query engine applies conservative count splitting and group delegation by default.
+
 ## Quick Start
 
 ### Maven Dependency
@@ -138,8 +145,17 @@ Service-selection `VALUES` is evaluated locally. Unselected services receive
 no request. The local alias is not used as a remote graph name: the `foo`
 request selects `FROM <https://example.org/graphs/catalog>`, while `bar`
 queries its default graph. A constant `GRAPH <urn:service:foo>` delegates only
-to that service. When the enclosed pattern has no nested graph switches, it is delegated; joins,
-ordering and aggregation outside the graph patterns are evaluated by Jena.
+to that service. When the enclosed pattern has no nested graph switches, it is delegated;
+joins between graphs are evaluated by Jena. Eligible counts across graph partitions are computed as
+remote partial counts and merged locally; complete eligible groups over a single
+proxy service are delegated as well.
+DISTINCT queries can also eliminate duplicates per service before transferring
+results, while retaining final duplicate elimination across services.
+ORDER BY over graph unions sorts eligible branches at their services and merges the
+sorted streams locally. Variable/constant sort keys are supported, including ASC/DESC,
+with global LIMIT/OFFSET retained. Computed keys and unsupported branch shapes keep
+local sorting. Endpoints must use compatible RDF term ordering; ties have unspecified
+relative order. Requests remain sequential.
 Correlated joins can cause additional requests per input binding; this is not
 a batched federation optimizer.
 
@@ -153,6 +169,22 @@ Nested `GRAPH` switches resolve against the composite dataset. Their enclosing
 graph scope is evaluated locally by Jena, while eligible inner graph patterns
 can still delegate. This fallback may use `find()` on proxy graphs and issue
 additional remote requests; nested graph queries are supported but not optimized.
+
+Aggregation planning uses a copy of the execution request context and preserves any
+configured optimizer. The dataset context is not modified. No assembler opt-in is
+needed. To disable composite proxy dispatch, set the following on the outer dataset:
+
+```turtle
+<#viewer> ja:context [
+    ja:cxtName <https://w3id.org/aksw/jena/proxy#proxyGraphsEnabled> ;
+    ja:cxtValue false
+] .
+```
+
+Programmatically, set `QueryEngineFactoryProxyGraphs.ENABLED` to `false` on the
+dataset or execution request context. Both query-engine `accept` overloads then
+decline, allowing ordinary Jena engine selection. A request setting overrides the
+dataset setting. Non-empty initial bindings retain the existing evaluation path.
 
 Current scope and limitations:
 
@@ -268,3 +300,24 @@ This project is licensed under the [Apache License 2.0](LICENSE).
 - **GitHub**: https://github.com/Scaseco/jena-proxy
 - **Issues**: https://github.com/Scaseco/jena-proxy/issues
 - **Maven Central**: https://search.maven.org/search?q=g:org.aksw.jena.proxy
+
+
+## Federation feature summary
+
+Federation planning is enabled automatically for `DatasetGraphMapLink` datasets
+with named proxy graph views, including those assembled with `ja:RDFDataset`.
+Local and remote named graphs can coexist. See the [setup example](#proxy-graph-views-and-a-composite-dataset)
+and [algebra rules](jena-proxy-dataset-sparql/README-algebra.md) for details.
+
+| Feature | Behavior | Scope / limitations |
+| --- | --- | --- |
+| Graph routing | Delegates each eligible `GRAPH` pattern to its backing RDFLink endpoint. | Local graph aliases can select remote named graphs or endpoint default graphs. |
+| Source selection | Constant graph names and graph-selection `VALUES` avoid requests to unselected services. | General joins remain local; correlated joins can issue requests per input binding. |
+| Counts across graphs | Computes partial `COUNT(*)` / `COUNT(?var)` remotely and sums contributions locally. | Conservative non-DISTINCT count splitting is enabled by default. |
+| Aggregation per service | Delegates complete eligible groups, including standard DISTINCT aggregates, SUM and AVG. | Does not split these aggregates across services by default. |
+| DISTINCT | Places eligible duplicate elimination in branches and services, reducing transferred rows. | Retains final duplicate elimination across branches. |
+| ORDER BY | Sorts eligible branches remotely and merges sorted streams locally. | Variable/constant keys, ASC/DESC; endpoints must use compatible RDF term ordering. Computed keys and DISTINCT barriers retain local sorting. |
+| LIMIT / OFFSET | Preserves the global slice, including ARQ's TopN form. | Does not introduce per-service limits or offsets. |
+| Mixed local / remote graphs | Includes local branches in aggregation, duplicate elimination and ordered merging. | Local branches may still need local grouping or sorting. |
+| Execution settings | Copies the request context and preserves the configured optimizer. | No assembler opt-in required; `QueryEngineFactoryProxyGraphs.ENABLED = false` opts out. Non-empty initial bindings keep the existing path. |
+| Request scheduling | Opens and reads service streams sequentially. | Parallel requests and batched correlated execution are not yet implemented. Blocked by the service enhancer PR which adds basic infrastructure. |

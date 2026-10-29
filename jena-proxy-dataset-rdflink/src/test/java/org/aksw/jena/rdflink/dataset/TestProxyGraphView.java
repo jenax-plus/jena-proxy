@@ -385,4 +385,297 @@ class TestProxyGraphView {
             });
         }
     }
+    private static List<Binding> datasetRows(DatasetGraph dataset, String sparql) {
+        try (QueryExec exec = QueryExec.dataset(dataset).query(PREFIX + sparql).build()) {
+            List<Binding> result = new ArrayList<>();
+            exec.select().forEachRemaining(result::add);
+            return result;
+        }
+    }
+
+    @Test void aggregateQueriesDelegateCountsByDefault() {
+        DatasetGraph backend = backend();
+        DatasetGraph empty = DatasetGraphFactory.create();
+        List<Query> sent = new ArrayList<>();
+        DatasetGraph composite = DatasetGraphFactory.createGeneral();
+        DatasetGraph expected = DatasetGraphFactory.createGeneral();
+        for (String name : List.of("first", "second", "empty")) {
+            Node alias = NodeFactory.createURI("urn:" + name);
+            DatasetGraph source = name.equals("empty") ? empty : backend;
+            Node graph = name.equals("first") ? GRAPH : Quad.defaultGraphNodeGenerated;
+            composite.addGraph(alias, proxy(() -> localLink(source), sent).getGraph(graph));
+            expected.addGraph(alias, Quad.isDefaultGraph(graph) ? source.getDefaultGraph() : source.getGraph(graph));
+        }
+        for (String query : List.of(
+                "SELECT (COUNT(*) AS ?c) { GRAPH ?g { ?s :p ?o } }",
+                "SELECT ?g (COUNT(*) AS ?c) { GRAPH ?g { ?s :p ?o } } GROUP BY ?g ORDER BY ?g",
+                "SELECT ?o (COUNT(*) AS ?c) { GRAPH ?g { ?s :p ?o } } GROUP BY ?o ORDER BY ?o",
+                "SELECT (COUNT(?missing) AS ?c) { GRAPH ?g { ?s :p ?o } }",
+                "SELECT (COUNT(*) AS ?c) { GRAPH ?g { ?s :missing ?o } }",
+                "SELECT ?g (COUNT(*) AS ?c) { GRAPH ?g { ?s :missing ?o } } GROUP BY ?g",
+                "SELECT ?g (COUNT(?missing) AS ?c) { GRAPH ?g { ?s :p ?o } } GROUP BY ?g ORDER BY ?g",
+                "SELECT ?g (COUNT(*) AS ?c) { GRAPH ?g { ?s :p ?o } } GROUP BY ?g HAVING(COUNT(*) > 1) ORDER BY ?g")) {
+            sent.clear();
+            assertEquals(datasetRows(expected, query), datasetRows(composite, query), query);
+            assertEquals(3, sent.size(), query);
+            assertTrue(sent.stream().allMatch(Query::hasAggregators), "Every endpoint must receive a group: " + sent);
+        }
+    }
+
+    @Test void serviceSelectionAndMixedLocalGraphsRemainCorrectForAggregates() {
+        DatasetGraph backend = backend();
+        List<Query> sent = new ArrayList<>();
+        DatasetGraph composite = DatasetGraphFactory.createGeneral();
+        DatasetGraph expected = DatasetGraphFactory.createGeneral();
+        Node first = NodeFactory.createURI("urn:first");
+        Node local = NodeFactory.createURI("urn:local");
+        composite.addGraph(first, proxy(() -> localLink(backend), sent).getGraph(GRAPH));
+        expected.addGraph(first, backend.getGraph(GRAPH));
+        composite.addGraph(local, backend.getDefaultGraph());
+        expected.addGraph(local, backend.getDefaultGraph());
+        for (String query : List.of(
+                "SELECT ?g (COUNT(*) AS ?c) { GRAPH ?g { ?s :p ?o } } GROUP BY ?g ORDER BY ?g",
+                "SELECT (COUNT(*) AS ?c) { GRAPH ?g { ?s :p ?o } }",
+                "SELECT ?g (COUNT(DISTINCT ?s) AS ?c) { GRAPH ?g { ?s :p ?o } } GROUP BY ?g ORDER BY ?g",
+                "SELECT (SUM(?o) AS ?c) { GRAPH ?g { ?s :p ?o } }",
+                "SELECT (COUNT(*) AS ?c) { VALUES ?g { :first :first } GRAPH ?g { ?s :p ?o } }",
+                "SELECT (COUNT(*) AS ?c) { VALUES ?g { :local } GRAPH ?g { ?s :p ?o } }")) {
+            sent.clear();
+            assertEquals(datasetRows(expected, query), datasetRows(composite, query), query);
+            if (query.contains("VALUES ?g { :local }")) {
+                assertTrue(sent.isEmpty(), "Unselected proxy graphs must not be queried");
+            }
+        }
+    }
+
+    @Test void optimizerIsDecoratedOnlyForTheExecutionRequest() {
+        DatasetGraph backend = backend();
+        List<Query> sent = new ArrayList<>();
+        DatasetGraph composite = DatasetGraphFactory.createGeneral();
+        composite.addGraph(NodeFactory.createURI("urn:first"), proxy(() -> localLink(backend), sent).getGraph(GRAPH));
+        java.util.concurrent.atomic.AtomicInteger calls = new java.util.concurrent.atomic.AtomicInteger();
+        org.apache.jena.sparql.algebra.optimize.RewriteFactory factory = context -> op -> {
+            calls.incrementAndGet();
+            return org.apache.jena.sparql.algebra.optimize.Optimize.stdOptimizationFactory.create(context).rewrite(op);
+        };
+        composite.getContext().set(org.apache.jena.sparql.ARQConstants.sysOptimizerFactory, factory);
+        datasetRows(composite, "SELECT (COUNT(*) AS ?c) { GRAPH ?g { ?s :p ?o } }");
+        assertEquals(1, calls.get());
+        assertSame(factory, composite.getContext().get(org.apache.jena.sparql.ARQConstants.sysOptimizerFactory));
+        assertTrue(sent.get(0).hasAggregators());
+    }
+
+    @Test void proxyEngineCanBeDisabledByDatasetOrRequestContext() {
+        DatasetGraph backend = backend();
+        DatasetGraph composite = DatasetGraphFactory.createGeneral();
+        composite.addGraph(NodeFactory.createURI("urn:first"), proxy(() -> localLink(backend), new ArrayList<>(), true).getGraph(GRAPH));
+        Query query = QueryFactory.create(PREFIX + "SELECT (COUNT(*) AS ?c) { GRAPH ?g { ?s :p ?o } }");
+        var op = Algebra.compile(query);
+        var factory = new QueryEngineFactoryProxyGraphs();
+        assertTrue(factory.accept(query, composite, Context.emptyContext()));
+        assertTrue(factory.accept(op, composite, Context.emptyContext()));
+        composite.getContext().set(QueryEngineFactoryProxyGraphs.ENABLED, false);
+        assertFalse(factory.accept(query, composite, Context.emptyContext()));
+        assertFalse(factory.accept(op, composite, Context.emptyContext()));
+        assertEquals("2", datasetRows(composite, query.toString()).get(0).get(Var.alloc("c")).getLiteralLexicalForm());
+        Context requestContext = Context.create();
+        requestContext.set(QueryEngineFactoryProxyGraphs.ENABLED, true);
+        assertTrue(factory.accept(query, composite, requestContext));
+        requestContext.set(QueryEngineFactoryProxyGraphs.ENABLED, "false");
+        assertFalse(factory.accept(query, composite, requestContext));
+        assertFalse(factory.accept(op, composite, requestContext));
+        assertFalse(factory.accept(query, null, Context.emptyContext()));
+    }
+
+    @Test void completeGroupsAndSubqueryScopesArePreserved() {
+        DatasetGraph backend = backend();
+        List<Query> sent = new ArrayList<>();
+        DatasetGraph composite = DatasetGraphFactory.createGeneral();
+        DatasetGraph expected = DatasetGraphFactory.createGeneral();
+        Node alias = NodeFactory.createURI("urn:first");
+        composite.addGraph(alias, proxy(() -> localLink(backend), sent).getGraph(GRAPH));
+        expected.addGraph(alias, backend.getGraph(GRAPH));
+        for (String query : List.of(
+                "SELECT (COUNT(DISTINCT ?s) AS ?n) (SUM(?o) AS ?sum) (AVG(?o) AS ?avg) { GRAPH :first { ?s :p ?o } }",
+                "SELECT ?s ?n { VALUES ?s { :a } { SELECT (COUNT(*) AS ?n) { GRAPH :first { ?s :p ?o } } } }",
+                "SELECT ?s ?n { VALUES ?s { :a } { SELECT ?s (COUNT(*) AS ?n) { GRAPH ?g { ?s :p ?o } } GROUP BY ?s } }",
+                "SELECT (COUNT(*) AS ?c) { { SELECT ?g ?s { GRAPH ?g { ?s :p ?o } } } }",
+                "SELECT (COUNT(RAND()) AS ?c) { GRAPH :first { ?s :p ?o } }")) {
+            sent.clear();
+            assertEquals(datasetRows(expected, query), datasetRows(composite, query), query);
+            if (query.contains("COUNT(DISTINCT")) assertTrue(sent.get(0).hasAggregators());
+            if (query.contains("RAND()")) assertFalse(sent.get(0).hasAggregators());
+        }
+    }
+
+    @Test void assembledGraphViewsDelegateAggregatesWithoutConfiguration() {
+        DatasetGraph backend = backend();
+        FusekiServer server = FusekiServer.create().port(0).add("/data", backend).build();
+        server.start();
+        try {
+            String description = """
+                PREFIX ja: <http://jena.hpl.hp.com/2005/11/Assembler#>
+                PREFIX dsg: <https://w3id.org/aksw/jena/dataset#>
+                <urn:root> a ja:RDFDataset ;
+                    ja:namedGraph [ ja:graphName <urn:first> ; ja:graph <urn:view> ] .
+                <urn:view> a ja:ViewGraph ; ja:dataset <urn:remote> ; ja:graphName <urn:remote:graph> .
+                <urn:remote> a dsg:DatasetHTTP ; dsg:destination "%s" .
+                """.formatted("http://localhost:" + server.getPort() + "/data");
+            var spec = RDFParser.fromString(description, Lang.TURTLE).toModel();
+            var enabledDataset = org.apache.jena.query.DatasetFactory.assemble(spec.getResource("urn:root"));
+            try {
+                assertEquals("2", datasetRows(enabledDataset.asDatasetGraph(),
+                    "SELECT (COUNT(*) AS ?c) { GRAPH ?g { ?s :p ?o } }")
+                    .get(0).get(Var.alloc("c")).getLiteralLexicalForm());
+                var grouped = datasetRows(enabledDataset.asDatasetGraph(),
+                    "SELECT ?g (COUNT(*) AS ?c) { GRAPH ?g { ?s :p ?o } } GROUP BY ?g");
+                assertEquals(1, grouped.size());
+                assertEquals(NodeFactory.createURI("urn:first"), grouped.get(0).get(Var.alloc("g")));
+                assertEquals("2", grouped.get(0).get(Var.alloc("c")).getLiteralLexicalForm());
+            } finally { enabledDataset.close(); }
+            spec.getResource("urn:root").addProperty(org.apache.jena.assembler.JA.context,
+                spec.createResource()
+                    .addProperty(org.apache.jena.assembler.JA.cxtName,
+                        spec.createResource(QueryEngineFactoryProxyGraphs.ENABLED.getSymbol()))
+                    .addLiteral(org.apache.jena.assembler.JA.cxtValue, false));
+            var disabledDataset = org.apache.jena.query.DatasetFactory.assemble(spec.getResource("urn:root"));
+            try {
+                var query = QueryFactory.create("SELECT * WHERE { GRAPH ?g { ?s ?p ?o } }");
+                assertFalse(new QueryEngineFactoryProxyGraphs().accept(query,
+                    disabledDataset.asDatasetGraph(), disabledDataset.getContext()));
+            } finally { disabledDataset.close(); }
+        } finally {
+            server.stop();
+        }
+    }
+
+    @Test void nonEmptyInitialBindingsRetainTheExistingEvaluationPath() {
+        DatasetGraph backend = backend();
+        List<Query> sent = new ArrayList<>();
+        DatasetGraph composite = DatasetGraphFactory.createGeneral();
+        composite.addGraph(NodeFactory.createURI("urn:first"), proxy(() -> localLink(backend), sent).getGraph(GRAPH));
+        var factory = new QueryEngineFactoryProxyGraphs();
+        Query query = QueryFactory.create(PREFIX + "SELECT (COUNT(*) AS ?c) { GRAPH ?g { ?s :p ?o } }");
+        var plan = factory.create(query, composite,
+            BindingFactory.binding(Var.alloc("s"), NodeFactory.createURI("urn:a")), Context.emptyContext());
+        try {
+            List<Binding> actual = new ArrayList<>();
+            plan.iterator().forEachRemaining(actual::add);
+            assertEquals(1, actual.size());
+            assertEquals("1", actual.get(0).get(Var.alloc("c")).getLiteralLexicalForm());
+            assertEquals(1, sent.size());
+            assertFalse(sent.get(0).hasAggregators());
+        } finally { plan.close(); }
+    }
+
+
+    @Test void distinctIsDelegatedPerGraphAndRetainedAcrossGraphs() {
+        DatasetGraph backend = DatasetGraphFactory.create();
+        RDFParser.fromString("PREFIX : <urn:> :a :p 1 . :b :p 1 . :c :p 2 .", Lang.TURTLE).parse(backend);
+        List<Query> sent = new ArrayList<>();
+        DatasetGraph composite = DatasetGraphFactory.createGeneral();
+        DatasetGraph expected = DatasetGraphFactory.createGeneral();
+        for (String name : List.of("first", "second")) {
+            Node alias = NodeFactory.createURI("urn:" + name);
+            composite.addGraph(alias, proxy(() -> localLink(backend), sent).getDefaultGraph());
+            expected.addGraph(alias, backend.getDefaultGraph());
+        }
+        for (String query : List.of(
+                "SELECT DISTINCT ?o { GRAPH ?g { ?s :p ?o } }",
+                "SELECT DISTINCT ?g ?o { GRAPH ?g { ?s :p ?o } }",
+                "SELECT DISTINCT ?o { GRAPH ?g { ?s :p ?o } FILTER(?o > 0) }")) {
+            sent.clear();
+            var actual = datasetRows(composite, query);
+            assertEquals(new java.util.HashSet<>(datasetRows(expected, query)), new java.util.HashSet<>(actual), query);
+            assertEquals(query.contains("?g ?o") ? 4 : 2, actual.size(), "Cross-graph duplicate elimination");
+            assertEquals(2, sent.size());
+            assertTrue(sent.stream().allMatch(Query::isDistinct), "Expected remote DISTINCT: " + sent);
+            assertTrue(sent.stream().allMatch(q -> q.getResultVars().size() == 1), "Only the distinct key is transferred");
+        }
+        sent.clear();
+        var selected = datasetRows(composite, "SELECT DISTINCT ?o { VALUES ?g { :first } GRAPH ?g { ?s :p ?o } }");
+        assertEquals(2, selected.size());
+        assertEquals(1, sent.size(), "Unselected services receive no request");
+        sent.clear();
+        assertEquals("6", datasetRows(composite, "SELECT (COUNT(*) AS ?c) { GRAPH ?g { ?s :p ?o } }")
+            .get(0).get(Var.alloc("c")).getLiteralLexicalForm());
+        assertTrue(sent.stream().noneMatch(Query::isDistinct), "COUNT retains duplicate input rows");
+    }
+
+    @Test void httpDistinctPushdownWorksWithoutAnOptIn() {
+        DatasetGraph backend = DatasetGraphFactory.create();
+        RDFParser.fromString("PREFIX : <urn:> :a :p 1 . :b :p 1 . :c :p 2 .", Lang.TURTLE).parse(backend);
+        FusekiServer server = FusekiServer.create().port(0).add("/data", backend).build();
+        server.start();
+        try {
+            List<Query> sent = new ArrayList<>();
+            DatasetGraph composite = DatasetGraphFactory.createGeneral();
+            for (String name : List.of("first", "second")) {
+                composite.addGraph(NodeFactory.createURI("urn:" + name), proxy(() -> RDFLinkHTTP.newBuilder()
+                    .destination("http://localhost:" + server.getPort() + "/data").build(), sent).getDefaultGraph());
+            }
+            assertEquals(2, datasetRows(composite, "SELECT DISTINCT ?o { GRAPH ?g { ?s :p ?o } }").size());
+            assertEquals(2, sent.size());
+            assertTrue(sent.stream().allMatch(Query::isDistinct));
+            assertTrue(sent.stream().allMatch(q -> q.getResultVars().size() == 1));
+        } finally { server.stop(); }
+    }
+
+    private static void checkOrderedFederation(Creator<RDFLink> links, DatasetGraph backend) {
+        List<Query> sent = new ArrayList<>();
+        DatasetGraph remote = proxy(links, sent);
+        DatasetGraph composite = DatasetGraphFactory.createGeneral();
+        DatasetGraph reference = DatasetGraphFactory.createGeneral();
+        for (String name : List.of("urn:alias:a", "urn:alias:b")) {
+            Node alias = NodeFactory.createURI(name);
+            composite.addGraph(alias, remote.getGraph(GRAPH));
+            reference.addGraph(alias, backend.getGraph(GRAPH));
+        }
+        List<String> queries = List.of(
+                "SELECT ?g ?o { GRAPH ?g { ?s :p ?o } } ORDER BY ?o ?g",
+                "SELECT ?g ?o { GRAPH ?g { ?s :p ?o } } ORDER BY DESC(?o) ?g LIMIT 2 OFFSET 1",
+                "SELECT ?g ?o { GRAPH ?g { ?s :p ?o } } ORDER BY DESC(?g) ?o",
+                "SELECT ?o { GRAPH <urn:alias:a> { ?s :p ?o } } ORDER BY DESC(?o)",
+                "SELECT ?o { GRAPH ?g { ?s :p ?o } FILTER(?o > 1) } ORDER BY DESC(?o)",
+                "SELECT ?g ?s { GRAPH ?g { ?s :p ?o } } ORDER BY DESC(?o) ?g",
+                "SELECT ?o { { SELECT ?g ?o { GRAPH ?g { ?s :p ?o } } ORDER BY DESC(?o) ?g LIMIT 2 } } ORDER BY ?o",
+                "SELECT ?o { GRAPH ?g { ?s :p ?o } } ORDER BY ?o LIMIT 0");
+        for (String query : queries) {
+            sent.clear();
+            assertEquals(datasetRows(reference, query), datasetRows(composite, query), query);
+            if (!query.endsWith("LIMIT 0")) {
+                assertFalse(sent.isEmpty(), query);
+                assertTrue(sent.stream().allMatch(Query::hasOrderBy), query + " / " + sent);
+                assertTrue(sent.stream().noneMatch(Query::hasLimit), "limits must remain global");
+            }
+        }
+        // DISTINCT may be moved below ORDER by ARQ. It is an intentional placement barrier.
+        for (String fallback : List.of(
+                "SELECT DISTINCT ?o { GRAPH ?g { ?s :p ?o } } ORDER BY ?o",
+                "SELECT DISTINCT ?o { GRAPH ?g { ?s :p ?o } } ORDER BY DESC(?o) LIMIT 1",
+                "SELECT ?g ?o { GRAPH ?g { ?s :p ?o } } ORDER BY (?o + 1) ?g")) {
+            assertEquals(datasetRows(reference, fallback), datasetRows(composite, fallback), fallback);
+        }
+        // Local branches must participate in the same ordered merge.
+        Node local = NodeFactory.createURI("urn:local");
+        composite.addGraph(local, backend.getDefaultGraph());
+        reference.addGraph(local, backend.getDefaultGraph());
+        String mixed = "SELECT ?g ?o { GRAPH ?g { ?s :p ?o } } ORDER BY DESC(?o) ?g";
+        assertEquals(datasetRows(reference, mixed), datasetRows(composite, mixed));
+    }
+
+    @Test void orderIsDelegatedAndMergedAcrossProxyGraphs() {
+        DatasetGraph backend = backend();
+        checkOrderedFederation(() -> localLink(backend), backend);
+    }
+
+    @Test void orderedFederationOverHttp() {
+        DatasetGraph backend = backend();
+        FusekiServer server = FusekiServer.create().port(0).add("/data", backend).build();
+        server.start();
+        try {
+            checkOrderedFederation(() -> RDFLinkHTTP.newBuilder()
+                    .destination("http://localhost:" + server.getPort() + "/data").build(), backend);
+        } finally { server.stop(); }
+    }
 }
