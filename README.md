@@ -91,6 +91,85 @@ dsg.getDefaultGraph().contains(...);
     ] .
 ```
 
+### Proxy graph views and a composite dataset
+
+`ja:ViewGraph` can select a graph from a `dsg:DatasetHTTP` dataset. A query
+against that model (wrapped by Jena in `DatasetGraphOne`) is delegated through
+its backing `RDFLink`. The selected remote named graph becomes the query's
+default graph using a SPARQL `FROM` clause. A view without `ja:graphName` uses
+the endpoint's default graph. This works with both `RDFLinkDataset` and
+`RDFLinkHTTP`; HTTP-specific dataset parameters are not required.
+
+Use local graph aliases to assemble several such views:
+
+```turtle
+@prefix ja:  <http://jena.hpl.hp.com/2005/11/Assembler#> .
+@prefix dsg: <https://w3id.org/aksw/jena/dataset#> .
+
+<#viewer> a ja:RDFDataset ;
+    ja:namedGraph [ ja:graphName <urn:service:foo> ; ja:graph <#fooView> ] ;
+    ja:namedGraph [ ja:graphName <urn:service:bar> ; ja:graph <#barView> ] .
+
+<#fooView> a ja:ViewGraph ;
+    ja:dataset <#foo> ;
+    ja:graphName <https://example.org/graphs/catalog> .
+
+<#barView> a ja:ViewGraph ;
+    ja:dataset <#bar> .
+
+<#foo> a dsg:DatasetHTTP ;
+    dsg:destination "https://foo.example/sparql" .
+<#bar> a dsg:DatasetHTTP ;
+    dsg:destination "https://bar.example/sparql" .
+```
+
+Query a resource across selected services with a reusable query:
+
+```sparql
+SELECT ?service ?p ?o {
+    VALUES ?service { <urn:service:foo> <urn:service:bar> }
+    GRAPH ?service {
+        <https://example.org/resource/123> ?p ?o
+    }
+}
+```
+
+Service-selection `VALUES` is evaluated locally. Unselected services receive
+no request. The local alias is not used as a remote graph name: the `foo`
+request selects `FROM <https://example.org/graphs/catalog>`, while `bar`
+queries its default graph. A constant `GRAPH <urn:service:foo>` delegates only
+to that service. When the enclosed pattern has no nested graph switches, it is delegated; joins,
+ordering and aggregation outside the graph patterns are evaluated by Jena.
+Correlated joins can cause additional requests per input binding; this is not
+a batched federation optimizer.
+
+The plugin rewrites composite graph patterns to internal `SERVICE` operations
+with a query-local executor that uses `RDFLink`. These internal service IRIs
+are dispatch identifiers, not HTTP endpoints. User-written `SERVICE` bodies
+retain their own dataset scope. Fully delegated graph patterns avoid
+`Graph.find()` and `DatasetGraph.find()`.
+
+Nested `GRAPH` switches resolve against the composite dataset. Their enclosing
+graph scope is evaluated locally by Jena, while eligible inner graph patterns
+can still delegate. This fallback may use `find()` on proxy graphs and issue
+additional remote requests; nested graph queries are supported but not optimized.
+
+Current scope and limitations:
+
+- Composite dispatch supports Jena's `DatasetGraphMapLink` (including the
+  `ja:RDFDataset` assembler) with proxy named graphs and a local default graph.
+  Local named graphs can coexist with proxy graphs.
+- Single graph views support SELECT, ASK and CONSTRUCT, including subqueries,
+  expressions and property paths. The view has no named graphs of its own.
+- Explicit input `FROM`/`FROM NAMED` clauses and DESCRIBE are rejected explicitly.
+  DESCRIBE requires a separate solution because ARQ's description handlers
+  access the graph outside the query plan; use CONSTRUCT for viewer queries.
+- Arbitrary graph/dataset wrappers and inference graphs are not unwrapped,
+  because doing so could bypass their semantics. Graph unions are not part of
+  this optimization.
+- Rewriting operates on Jena SPARQL syntax; opaque endpoint-specific query text
+  is not supported by this graph-scoping path.
+
 #### Advanced Configuration Options
 
 The assembler supports additional properties for fine-grained HTTP configuration:

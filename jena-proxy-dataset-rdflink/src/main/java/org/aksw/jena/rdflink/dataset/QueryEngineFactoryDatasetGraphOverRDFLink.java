@@ -26,6 +26,8 @@ import org.apache.jena.sparql.algebra.Algebra;
 import org.apache.jena.sparql.algebra.Op;
 import org.apache.jena.sparql.algebra.OpAsQuery;
 import org.apache.jena.sparql.core.DatasetGraph;
+import org.apache.jena.sparql.core.DatasetGraphOne;
+import org.apache.jena.sparql.core.GraphView;
 import org.apache.jena.sparql.engine.Plan;
 import org.apache.jena.sparql.engine.QueryEngineFactory;
 import org.apache.jena.sparql.engine.binding.Binding;
@@ -47,12 +49,23 @@ public class QueryEngineFactoryDatasetGraphOverRDFLink
 
     @Override
     public boolean accept(Query query, DatasetGraph dataset, Context context) {
-        boolean result = dataset instanceof DatasetGraphOverRDFLink;
+        boolean result = dataset instanceof DatasetGraphOverRDFLink || getProxyView(dataset) != null;
         return result;
     }
 
     @Override
     public Plan create(Query query, DatasetGraph dataset, Binding inputBinding, Context context) {
+        GraphView view = getProxyView(dataset);
+        if (view != null) {
+            Query scoped = QueryGraphScope.rewrite(query, view.getGraphName(), inputBinding);
+            Query select = scoped;
+            if (!scoped.isSelectType()) {
+                select = OpAsQuery.asQuery(Algebra.compile(scoped));
+                scoped.getGraphURIs().forEach(select::addGraphURI);
+            }
+            return new PlanOverRDFLink((DatasetGraphOverRDFLink)view.getDataset(), select,
+                Algebra.compile(query), context);
+        }
         DatasetGraphOverRDFLink engineDsg = (DatasetGraphOverRDFLink)dataset;
         Op op = Algebra.compile(query);
 
@@ -66,15 +79,26 @@ public class QueryEngineFactoryDatasetGraphOverRDFLink
 
     @Override
     public boolean accept(Op op, DatasetGraph dataset, Context context) {
-        boolean result = dataset instanceof DatasetGraphOverRDFLink;
+        boolean result = dataset instanceof DatasetGraphOverRDFLink || getProxyView(dataset) != null;
         return result;
     }
 
     @Override
     public Plan create(Op op, DatasetGraph dataset, Binding inputBinding, Context context) {
+        if (getProxyView(dataset) != null) {
+            return create(OpAsQuery.asQuery(op), dataset, inputBinding, context);
+        }
         DatasetGraphOverRDFLink engineDsg = (DatasetGraphOverRDFLink)dataset;
         Query query = OpAsQuery.asQuery(op);
         Plan result = new PlanOverRDFLink(engineDsg, query, op, context);
         return result;
+    }
+
+    private static GraphView getProxyView(DatasetGraph dataset) {
+        // Do not unwrap arbitrary graph wrappers: they may change the visible data.
+        return dataset instanceof DatasetGraphOne
+                && dataset.getDefaultGraph() instanceof GraphView view
+                && view.getDataset() instanceof DatasetGraphOverRDFLink
+            ? view : null;
     }
 }
