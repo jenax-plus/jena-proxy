@@ -236,7 +236,8 @@ dataset setting.
 
 #### Advanced Configuration Options
 
-The assembler supports additional properties for fine-grained HTTP configuration which follows the [RDFLinkHTTPBuilder API](https://github.com/apache/jena/blob/main/jena-rdfconnection/src/main/java/org/apache/jena/rdflink/RDFLinkHTTPBuilder.java):
+The assembler supports additional properties for fine-grained HTTP configuration.
+The assembler configuration follows the [RDFLinkHTTPBuilder API](https://github.com/apache/jena/blob/main/jena-rdfconnection/src/main/java/org/apache/jena/rdflink/RDFLinkHTTPBuilder.java):
 
 ```turtle
 <#dataset> a dsg:DatasetHTTP ;
