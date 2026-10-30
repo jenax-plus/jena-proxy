@@ -13,7 +13,7 @@
   <parent>
     <groupId>org.aksw.jena.proxy</groupId>
     <artifactId>jena-proxy-parent</artifactId>
-    <version>0.8.0-SNAPSHOT</version>
+    <version>0.8.0</version>
   </parent>
 
   <dependencies>
