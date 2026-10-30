@@ -23,7 +23,6 @@ package org.aksw.jena.rdflink.dataset;
 
 import java.util.Optional;
 
-import org.apache.jena.sparql.ARQConstants;
 import org.apache.jena.sparql.core.DatasetGraph;
 import org.apache.jena.sparql.util.Context;
 import org.apache.jena.sparql.util.ContextAccumulator;

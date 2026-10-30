@@ -40,10 +40,10 @@ public class PlanOverRDFLink
 {
     /** The dataset graph. */
     protected final DatasetGraphOverRDFLink datasetGraph;
-    
+
     /** The query to execute. */
     protected final Query query;
-    
+
     /** The execution context. */
     protected final Context context;
 
@@ -92,7 +92,6 @@ public class PlanOverRDFLink
     @Override
     public QueryIterator iteratorOnce() {
         ExecutionContext execCxt = ExecutionContext.create(datasetGraph, context);
-        @SuppressWarnings("resource")
         RDFLink link = datasetGraph.newLink();
         QueryExec qExecRaw;
         try {

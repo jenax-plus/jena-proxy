@@ -23,6 +23,7 @@ package org.aksw.jena.rdflink.dataset.plugin;
 
 import org.aksw.jena.rdflink.dataset.DatasetGraphOverRDFLink;
 import org.aksw.jena.rdflink.dataset.QueryEngineFactoryDatasetGraphOverRDFLink;
+import org.aksw.jena.rdflink.dataset.QueryEngineFactoryProxyGraphs;
 import org.aksw.jena.rdflink.dataset.assembler.DatasetAssemblerHTTP;
 import org.apache.jena.sparql.engine.QueryEngineRegistry;
 import org.apache.jena.sparql.modify.UpdateEngineRegistry;
@@ -64,6 +65,7 @@ public class JenaPluginDatasetGraphOverRDFLink
      */
     public static void init(QueryEngineRegistry reg) {
         reg.add(new QueryEngineFactoryDatasetGraphOverRDFLink());
+        reg.add(new QueryEngineFactoryProxyGraphs());
     }
 
     /**
