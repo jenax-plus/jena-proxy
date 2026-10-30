@@ -61,27 +61,29 @@ The composite proxy query engine applies conservative count splitting and group 
 <dependency>
     <groupId>org.aksw.jena.proxy</groupId>
     <artifactId>jena-proxy-dataset-rdflink</artifactId>
-    <version>0.7.0</version>
+    <version>0.8.1</version>
 </dependency>
 ```
 
 ### Programmatic API
 
 ```java
-import org.aksw.jena.rdflink.dataset.DatasetGraphOverRDFLink;
+import org.apache.jena.atlas.lib.Creator;
 import org.apache.jena.rdflink.RDFLink;
 import org.apache.jena.rdflink.RDFLinkHTTP;
 import org.apache.jena.sparql.core.DatasetGraph;
 
+import org.aksw.jena.rdflink.dataset.DatasetGraphOverRDFLink;
+
 // Create an RDFLink to a remote endpoint
-RDFLink link = RDFLinkHTTP.newBuilder()
+Creator<RDFLink> linkCreator = () -> RDFLinkHTTP.newBuilder()
     .queryEndpoint("http://localhost:3030/dataset/query")
     .updateEndpoint("http://localhost:3030/dataset/update")
     .gspEndpoint("http://localhost:3030/dataset/data")
     .build();
 
 // Create a DatasetGraph proxy
-DatasetGraph dsg = DatasetGraphOverRDFLink.create(() -> link);
+DatasetGraph dsg = DatasetGraphOverRDFLink.create(linkCreator);
 
 // Use it like a local dataset
 dsg.getDefaultGraph().contains(...);
