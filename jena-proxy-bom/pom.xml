@@ -51,11 +51,13 @@
       <dependency>
         <groupId>org.aksw.jena.proxy</groupId>
         <artifactId>jena-proxy-dataset-sparql</artifactId>
+        <version>${project.version}</version>
       </dependency>
 
       <dependency>
         <groupId>org.aksw.jena.proxy</groupId>
         <artifactId>jena-proxy-dataset-rdflink</artifactId>
+        <version>${project.version}</version>
       </dependency>
     </dependencies>
   </dependencyManagement>
