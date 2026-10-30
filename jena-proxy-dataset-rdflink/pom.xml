@@ -1,60 +1,60 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0"
-	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
-	<modelVersion>4.0.0</modelVersion>
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
 
-	<artifactId>jena-proxy-dataset-rdflink</artifactId>
-	<name>Jena Proxy - DatasetGraph over RDFLink</name>
-	<description>Jena DatasetGraph implementation over an RDFLink creator</description>
-	<packaging>jar</packaging>
+  <artifactId>jena-proxy-dataset-rdflink</artifactId>
+  <name>Jena Proxy - DatasetGraph over RDFLink</name>
+  <description>Jena DatasetGraph implementation over an RDFLink creator</description>
+  <packaging>jar</packaging>
 
-	<parent>
-		<groupId>org.aksw.jena.proxy</groupId>
-		<artifactId>jena-proxy-parent</artifactId>
-		<version>0.8.0-SNAPSHOT</version>
-	</parent>
+  <parent>
+    <groupId>org.aksw.jena.proxy</groupId>
+    <artifactId>jena-proxy-parent</artifactId>
+    <version>0.8.0-SNAPSHOT</version>
+  </parent>
 
-	<dependencies>
-		<dependency>
-			<groupId>org.apache.jena</groupId>
-			<artifactId>jena-rdfconnection</artifactId>
-		</dependency>
+  <dependencies>
+    <dependency>
+      <groupId>org.apache.jena</groupId>
+      <artifactId>jena-rdfconnection</artifactId>
+    </dependency>
 
-		<dependency>
-			<groupId>org.aksw.jena.proxy</groupId>
-			<artifactId>jena-proxy-dataset-sparql</artifactId>
-		</dependency>
+    <dependency>
+      <groupId>org.aksw.jena.proxy</groupId>
+      <artifactId>jena-proxy-dataset-sparql</artifactId>
+    </dependency>
 
-		<!-- Unit Testing -->		
-		<dependency>
-			<groupId>org.aksw.jena.exectracker</groupId>
-			<artifactId>jena-exectracker-arq</artifactId>
-			<scope>test</scope>
-		</dependency>
+    <!-- Unit Testing -->
+    <dependency>
+      <groupId>org.aksw.jena.exectracker</groupId>
+      <artifactId>jena-exectracker-arq</artifactId>
+      <scope>test</scope>
+    </dependency>
 
-		<dependency>
-			<groupId>org.apache.jena</groupId>
-			<artifactId>jena-fuseki-main</artifactId>
-		</dependency>
+    <dependency>
+      <groupId>org.apache.jena</groupId>
+      <artifactId>jena-fuseki-main</artifactId>
+    </dependency>
 
-		<dependency>
-			<groupId>org.junit.jupiter</groupId>
-			<artifactId>junit-jupiter</artifactId>
-			<scope>test</scope>
-		</dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
 
-		<dependency>
-			<groupId>org.junit.platform</groupId>
-			<artifactId>junit-platform-suite</artifactId>
-			<scope>test</scope>
-		</dependency>
-		
-		<dependency>
-			<groupId>org.apache.logging.log4j</groupId>
-			<artifactId>log4j-slf4j2-impl</artifactId>
-			<scope>test</scope>
-		</dependency>		
-	</dependencies>
+    <dependency>
+      <groupId>org.junit.platform</groupId>
+      <artifactId>junit-platform-suite</artifactId>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.logging.log4j</groupId>
+      <artifactId>log4j-slf4j2-impl</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
 </project>
 
