@@ -363,7 +363,8 @@ Newest versions first.
 
 | Version | Highlights |
 | --- | --- |
-| 0.8.0 | Adds profile-free SPARQL federation over virtual graph datasets, including remote aggregation, DISTINCT placement and distribution, and ORDER BY pushdown with local sorted merging. |
+| [v0.8.1](https://github.com/jenax-plus/jena-proxy/releases/tag/v0.8.1) | Fixed broken jena-proxy-bom. |
+| [v0.8.0](https://github.com/jenax-plus/jena-proxy/releases/tag/v0.8.0) | Adds profile-free SPARQL federation over virtual graph datasets, including remote aggregation, DISTINCT placement and distribution, and ORDER BY pushdown with local sorted merging. |
 | [v0.7.1](https://github.com/jenax-plus/jena-proxy/releases/tag/v0.7.1) | Adds compatibility with [jena-exectracker](https://github.com/jenax-plus/jena-exectracker). |
 | [v0.7.0](https://github.com/jenax-plus/jena-proxy/releases/tag/v0.7.0) | Introduces the proxy architecture for transparent remote dataset access through SPARQL and RDFLink. |
 

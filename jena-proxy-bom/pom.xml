@@ -12,7 +12,7 @@
   <parent>
     <groupId>org.aksw.jena.proxy</groupId>
     <artifactId>jena-proxy-parent</artifactId>
-    <version>0.8.0-SNAPSHOT</version>
+    <version>0.8.1-SNAPSHOT</version>
   </parent>
 
   <build>
@@ -46,16 +46,18 @@
     </plugins>
   </build>
 
-  <dependencies>
-    <dependency>
-      <groupId>org.aksw.jena.proxy</groupId>
-      <artifactId>jena-proxy-dataset-sparql</artifactId>
-    </dependency>
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>org.aksw.jena.proxy</groupId>
+        <artifactId>jena-proxy-dataset-sparql</artifactId>
+      </dependency>
 
-    <dependency>
-      <groupId>org.aksw.jena.proxy</groupId>
-      <artifactId>jena-proxy-dataset-rdflink</artifactId>
-    </dependency>
-  </dependencies>
+      <dependency>
+        <groupId>org.aksw.jena.proxy</groupId>
+        <artifactId>jena-proxy-dataset-rdflink</artifactId>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
 </project>
 
