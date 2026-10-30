@@ -1,6 +1,8 @@
 # jena-proxy
 
-Apache Jena Dataset Proxy implementations for remote SPARQL and RDFLink endpoints.
+Transparent remote datasets and profile-free SPARQL federation for Apache Jena.
+Remote services become graphs in a virtual dataset, with query rewrites that push
+computation to the services and combine results locally.
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 [![Maven Central](https://img.shields.io/maven-central/v/org.aksw.jena.proxy/jena-proxy-parent.svg)](https://maven-badges.herokuapp.com/maven-central/org.aksw.jena.proxy)
@@ -355,3 +357,12 @@ and [algebra rules](jena-proxy-dataset-sparql/README-algebra.md) for details.
 | Execution settings | Copies the request context and preserves the configured optimizer. | No assembler opt-in required; `QueryEngineFactoryProxyGraphs.ENABLED = false` opts out. Non-empty initial bindings keep the existing path. |
 | Request scheduling | Opens and reads service streams sequentially. | Parallel requests and batched correlated execution are not yet implemented. Blocked by the service enhancer PR which adds basic infrastructure. |
 
+## Changelog
+
+Newest versions first.
+
+| Version | Highlights |
+| --- | --- |
+| 0.8.0 (unreleased) | Adds profile-free SPARQL federation over virtual graph datasets, including remote aggregation, DISTINCT placement and distribution, and ORDER BY pushdown with local sorted merging. |
+| [v0.7.1](https://github.com/jenax-plus/jena-proxy/releases/tag/v0.7.1) | Adds compatibility with [jena-exectracker](https://github.com/jenax-plus/jena-exectracker). |
+| [v0.7.0](https://github.com/jenax-plus/jena-proxy/releases/tag/v0.7.0) | Introduces the proxy architecture for transparent remote dataset access through SPARQL and RDFLink. |
