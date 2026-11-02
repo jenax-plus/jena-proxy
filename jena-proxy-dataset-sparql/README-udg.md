@@ -93,6 +93,26 @@ is preserved. Projection/DISTINCT boundaries introduced by UDG can keep some
 aggregations local; enabling this mode does not guarantee every federation
 optimization applies. See the main README for a complete query-only Fuseki configuration.
 
+## Sorting and projected DISTINCT
+
+With proxy routing, eligible single-pattern scans use sorted remote results and a
+local merge, including UDG mode. For `SELECT DISTINCT ?p { ?s ?p ?o } ORDER BY ?s`,
+remote queries retain `?p` and the hidden sort key `?s`; the client merges, projects
+to `?p`, then applies ordinary Jena DISTINCT. Without query DISTINCT, full triple
+columns remain live until any UDG triple deduplication is complete. LIMIT/OFFSET
+remain global. No source profiles are needed.
+
+General joins, correlated execution and computed sort keys retain their existing
+fallbacks. A finite `ARQ.spillToDiskThreshold` with local DISTINCT/REDUCED disables
+optional order pushdown because of a Jena 6.2 ordering bug; this temporary guard
+is tracked separately in [JENA_ISSUES.md](../JENA_ISSUES.md#distinct-spill-expected-and-observed).
+It does not repair native Jena queries already affected by that bug. Aggregation
+across UDG's global triple deduplication remains a separate optimization problem.
+
+`TestUdgPushdown` checks remote projections, sorting and DISTINCT over RDFLink and
+HTTP, bags versus sets, mixed local/remote branches and global slices. The UDG
+semantic tests below remain independent of federation planning.
+
 ## Validation
 
 `TestTransformUnionDefaultGraph` is dedicated to UDG behavior and uses local

@@ -238,6 +238,30 @@ The programmatic enable symbol is `ProxyDatasetSettings.UNION_DEFAULT_GRAPH`;
 strictness and deduplication use `TransformUnionDefaultGraph.STRICT` and
 `TransformUnionDefaultGraph.DEDUPLICATE`. See [UDG details](jena-proxy-dataset-sparql/README-udg.md).
 
+#### Union default graph queries expected to work
+
+With UDG enabled and optimization on, the following single-pattern queries are
+expected to work over eligible proxy services. The expected execution shapes also
+serve as regression-test hints. Cross-graph triple deduplication defaults to on.
+
+| Query | Remote work | Client work |
+| --- | --- | --- |
+| `SELECT * { ?s ?p ?o } ORDER BY ?s` | Sort each service's matches by `?s`. | Merge sorted streams and remove cross-graph triple duplicates. |
+| `SELECT DISTINCT ?p { ?s ?p ?o }` | Project to `?p` and eliminate duplicates per service. | Eliminate remaining cross-service duplicates. |
+| `SELECT DISTINCT ?p { ?s ?p ?o } ORDER BY ?s` | Project to `?p ?s`, eliminate duplicate pairs and sort by `?s`. | Merge on `?s`, project to `?p`, then apply final DISTINCT. |
+| `SELECT ?p { ?s ?p ?o } ORDER BY ?s` | Sort full triples; with UDG deduplication off, transfer only `?p ?s`. | Merge, finish any triple deduplication, then project to `?p`; preserve repeated predicates from different triples. |
+| `SELECT DISTINCT ?p { ?s ?p ?o } ORDER BY ?p LIMIT 10 OFFSET 5` | Project, deduplicate and sort by `?p`. | Merge and deduplicate globally before applying OFFSET/LIMIT. |
+
+For regression tests, check result multiplicities, ordering and captured remote
+queries; include overlapping graphs and both UDG deduplication settings. Rows
+with equal sort keys need not have a fixed tie order.
+
+General joins and computed sort keys such as `ORDER BY STR(?s)` retain local
+sorting; UDG-wide `COUNT(*)` is not yet split into partial remote counts.
+Endpoints must provide compatible term ordering. A finite DISTINCT spill threshold
+currently disables optional order pushdown pending a Jena fix; see
+[sorting limits and spill fallback](jena-proxy-dataset-sparql/README-udg.md#sorting-and-projected-distinct).
+
 #### Disabling federation
 
 Federation is enabled automatically. To disable composite proxy dispatch, set this
@@ -386,8 +410,9 @@ and [algebra rules](jena-proxy-dataset-sparql/README-algebra.md) for details.
 | Source selection | Constant graph names and graph-selection `VALUES` avoid requests to unselected services. | General joins remain local; correlated joins can issue requests per input binding. |
 | Counts across graphs | Computes partial `COUNT(*)` / `COUNT(?var)` remotely and sums contributions locally. | Conservative non-DISTINCT count splitting is enabled by default. |
 | Aggregation per service | Delegates complete eligible groups, including standard DISTINCT aggregates, SUM and AVG. | Does not split these aggregates across services by default. |
-| DISTINCT | Places eligible duplicate elimination in branches and services, reducing transferred rows. | Retains final duplicate elimination across branches. |
-| ORDER BY | Sorts eligible branches remotely and merges sorted streams locally. | Variable/constant keys, ASC/DESC; endpoints must use compatible RDF term ordering. Computed keys and DISTINCT barriers retain local sorting. |
+| DISTINCT | Places eligible duplicate elimination in branches and services, including union-default-graph scans. | Retains final duplicate elimination across branches and the final query projection. |
+| ORDER BY | Sorts eligible branches remotely and merges sorted streams locally, including union-default-graph scans. | Variable/constant keys, ASC/DESC; endpoints must use compatible RDF term ordering. [Limits and spill fallback](jena-proxy-dataset-sparql/README-udg.md#sorting-and-projected-distinct). |
+| Projection | Transfers only needed columns where possible, retaining hidden sort keys until after merging. | Preserves final client projection, DISTINCT semantics and result multiplicities. |
 | LIMIT / OFFSET | Preserves the global slice, including ARQ's TopN form. | Does not introduce per-service limits or offsets. |
 | Mixed local / remote graphs | Includes local branches in aggregation, duplicate elimination and ordered merging. | Local branches may still need local grouping or sorting. |
 | Union default graph | Optional query rewriting makes named graphs accessible as a virtual default graph. | Enable with `dsg:unionDefaultGraph true`; strictness and cross-graph deduplication are configurable. |
@@ -400,6 +425,7 @@ Newest versions first.
 
 | Version | Highlights |
 | --- | --- |
+| [v0.8.3](https://github.com/jenax-plus/jena-proxy/releases/tag/v0.8.3) | Optimizes union-default-graph queries with projection, DISTINCT and ORDER BY pushdown, including remote sorting with local merging and hidden sort-key handling. |
 | [v0.8.2](https://github.com/jenax-plus/jena-proxy/releases/tag/v0.8.2) | Improved and optimized union default graph support. |
 | [v0.8.1](https://github.com/jenax-plus/jena-proxy/releases/tag/v0.8.1) | Fixed broken jena-proxy-bom. |
 | [v0.8.0](https://github.com/jenax-plus/jena-proxy/releases/tag/v0.8.0) | Adds profile-free SPARQL federation over virtual graph datasets, including remote aggregation, DISTINCT placement and distribution, and ORDER BY pushdown with local sorted merging. |

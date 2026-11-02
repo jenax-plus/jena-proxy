@@ -125,9 +125,8 @@ a tie order. Only variable/constant sort keys are currently eligible: computed,
 query-local and extension-function expressions retain ordinary sorting. Endpoint
 RDF term comparisons must agree with ARQ's key comparison (including datatype
 and unbound handling); SPARQL leaves some term orders implementation-dependent.
-No per-branch LIMIT/OFFSET is introduced. Global DISTINCT and slices retain their
-position; DISTINCT below ORDER is a placement barrier, because no assumption is
-made that arbitrary DISTINCT implementations preserve input order. Correlated or non-root execution uses the original sort with the
+No per-branch LIMIT/OFFSET is introduced. Global DISTINCT and slices retain their semantics; order placement may commute
+ORDER below ordinary Jena DISTINCT under its order-preserving contract. Correlated or non-root execution uses the original sort with the
 original input iterator. Closing, cancellation and branch failures clean up every
 opened branch; no threads or parallel request scheduling are introduced.
 
@@ -135,6 +134,29 @@ Tests cover sorted results and outgoing ORDER BY over RDFLink and local HTTP,
 mixed local/remote branches, ASC/DESC, graph aliases, TopN and global OFFSET/LIMIT,
 duplicates, unbound cells, empty branches, 150 generated partition sets, policy
 barriers, correlated inputs, early close, cancellation and read failures.
+
+### Projection and order placement
+
+The proxy now normalizes unit joins/sequences before planning. The new rules are
+independent transforms using `Op` as their input/output:
+
+| Rule | Purpose |
+| --- | --- |
+| `TransformNormalizeJoinIdentities` | Remove exact unit operands while retaining projection scopes and VALUES multiplicities. |
+| `TransformProjectionPlacement` | Push live columns toward union branches; retain hidden sort/filter dependencies and a final client projection. DISTINCT and general joins remain barriers. |
+| `TransformDistinctOrderProjection` | Seed a wider partial DISTINCT on projected columns plus live sort keys; retain final narrow DISTINCT. |
+| `TransformProjectService` | Delegate projection into approved simple service patterns, keeping the client projection. Modifier-bearing service bodies remain barriers. |
+| `TransformOrderPlacement` | Move supported ORDER through compatible projections, stable filters and order-preserving DISTINCT. Keep global bounds after deduplication. |
+| `OrderPlanning.rewrite` | Compose placement, union distribution and service delegation, including nested sorted unions exposed inside branch projections/DISTINCTs. |
+
+Run projection/DISTINCT placement before and after the configured optimizer; run
+that optimizer only once, and introduce merge extensions last. The second pass
+handles DISTINCT/TopN shapes produced by ordinary optimization. `OrderPlanning`
+requires order-preserving DISTINCT execution. The proxy conservatively bypasses
+order rewrites for finite spill settings with local DISTINCT/REDUCED, pending
+[Jena's upstream fix](../JENA_ISSUES.md). It retains native Jena DISTINCT and adds
+no duplicate-elimination executor. Standalone users must check their engine's
+contract too. Effective-order inference and source constraints remain future work.
 
 ## Aggregate policy
 
