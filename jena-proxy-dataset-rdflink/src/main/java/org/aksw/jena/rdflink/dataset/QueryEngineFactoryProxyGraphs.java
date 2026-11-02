@@ -28,17 +28,21 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import org.aksw.jena.proxy.algebra.AlgebraQueries;
+import org.aksw.jena.proxy.algebra.OrderPlanning;
+import org.aksw.jena.proxy.algebra.TransformDistinctOrderProjection;
 import org.aksw.jena.proxy.algebra.TransformDistinctPlacement;
 import org.aksw.jena.proxy.algebra.TransformDistinctService;
 import org.aksw.jena.proxy.algebra.TransformGroupService;
 import org.aksw.jena.proxy.algebra.TransformGroupTable;
 import org.aksw.jena.proxy.algebra.TransformGroupUnion;
-import org.aksw.jena.proxy.algebra.TransformOrderService;
-import org.aksw.jena.proxy.algebra.TransformOrderUnion;
+import org.aksw.jena.proxy.algebra.TransformNormalizeJoinIdentities;
+import org.aksw.jena.proxy.algebra.TransformProjectService;
+import org.aksw.jena.proxy.algebra.TransformProjectionPlacement;
 import org.aksw.jena.proxy.algebra.TransformPullExtend;
 import org.aksw.jena.proxy.algebra.udg.TransformUnionDefaultGraph;
 import org.apache.jena.graph.Node;
 import org.apache.jena.graph.NodeFactory;
+import org.apache.jena.query.ARQ;
 import org.apache.jena.query.Query;
 import org.apache.jena.sparql.ARQConstants;
 import org.apache.jena.sparql.algebra.Algebra;
@@ -122,7 +126,9 @@ public class QueryEngineFactoryProxyGraphs implements QueryEngineFactory {
                         context -> {
                             var downstream = delegate.create(context);
                             return op -> {
-                                Op planned = TransformGroupUnion.rewrite(op);
+                                Op planned =
+                                        Transformer.transformSkipService(new TransformNormalizeJoinIdentities(), op);
+                                planned = TransformGroupUnion.rewrite(planned);
                                 planned = Transformer.transformSkipService(new TransformGroupTable(), planned);
                                 planned = TransformPullExtend.transform(planned);
                                 planned =
@@ -131,6 +137,11 @@ public class QueryEngineFactoryProxyGraphs implements QueryEngineFactory {
                                                         service -> services.contains(service.getService()),
                                                         QueryEngineFactoryProxyGraphs::canDelegate),
                                                 planned);
+                                planned =
+                                        Transformer.transformSkipService(
+                                                new TransformDistinctOrderProjection(), planned);
+                                planned =
+                                        Transformer.transformSkipService(new TransformProjectionPlacement(), planned);
                                 planned = TransformDistinctPlacement.rewrite(planned, true);
                                 planned =
                                         Transformer.transformSkipService(
@@ -139,12 +150,59 @@ public class QueryEngineFactoryProxyGraphs implements QueryEngineFactory {
                                                 planned);
                                 // Add execution extensions last, after standard scoping and TopN placement.
                                 planned = downstream.rewrite(planned);
-                                planned = Transformer.transformSkipService(new TransformOrderUnion(), planned);
-                                return Transformer.transformSkipService(
-                                        new TransformOrderService(service -> services.contains(service.getService())),
-                                        planned);
+                                planned =
+                                        Transformer.transformSkipService(
+                                                new TransformNormalizeJoinIdentities(), planned);
+                                // ARQ may expose another DISTINCT below ORDER/TopN. Reuse
+                                // placement without running scope renaming/optimization twice.
+                                planned =
+                                        Transformer.transformSkipService(
+                                                new TransformDistinctOrderProjection(), planned);
+                                planned =
+                                        Transformer.transformSkipService(new TransformProjectionPlacement(), planned);
+                                planned = TransformDistinctPlacement.rewrite(planned, true);
+                                planned =
+                                        Transformer.transformSkipService(
+                                                new TransformDistinctService(
+                                                        service -> services.contains(service.getService())),
+                                                planned);
+                                planned =
+                                        Transformer.transformSkipService(
+                                                new TransformProjectService(
+                                                        service -> services.contains(service.getService())),
+                                                planned);
+                                if (distinctMaySpillOutOfOrder(planned, context)) return planned;
+                                return OrderPlanning.rewrite(
+                                        planned, service -> services.contains(service.getService()));
                             };
                         });
+    }
+
+    /**
+     * Temporary Jena 6.2 workaround: DISTINCT can lose input order on spill. See JENA_ISSUES.md,
+     * JENA-LOCAL-05; remove once fixed upstream. This avoids introducing affected order plans, but
+     * does not repair existing native plans.
+     */
+    private static boolean distinctMaySpillOutOfOrder(Op op, Context context) {
+        if (context.getLong(ARQ.spillToDiskThreshold, Long.MAX_VALUE) == Long.MAX_VALUE) return false;
+        var found = new java.util.concurrent.atomic.AtomicBoolean();
+        org.apache.jena.sparql.algebra.walker.Walker.walkSkipService(
+                op,
+                new org.apache.jena.sparql.algebra.OpVisitorBase() {
+                    @Override
+                    public void visit(org.apache.jena.sparql.algebra.op.OpDistinct distinct) {
+                        found.set(true);
+                    }
+
+                    @Override
+                    public void visit(org.apache.jena.sparql.algebra.op.OpReduced reduced) {
+                        found.set(true);
+                    }
+                },
+                null,
+                null,
+                null);
+        return found.get();
     }
 
     private static Map<Node, GraphView> proxyGraphs(DatasetGraph dataset) {
