@@ -27,22 +27,22 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-
 import org.aksw.jena.proxy.algebra.AlgebraQueries;
 import org.aksw.jena.proxy.algebra.TransformDistinctPlacement;
 import org.aksw.jena.proxy.algebra.TransformDistinctService;
 import org.aksw.jena.proxy.algebra.TransformGroupService;
 import org.aksw.jena.proxy.algebra.TransformGroupTable;
 import org.aksw.jena.proxy.algebra.TransformGroupUnion;
-import org.aksw.jena.proxy.algebra.TransformPullExtend;
-import org.aksw.jena.proxy.algebra.TransformOrderUnion;
 import org.aksw.jena.proxy.algebra.TransformOrderService;
+import org.aksw.jena.proxy.algebra.TransformOrderUnion;
+import org.aksw.jena.proxy.algebra.TransformPullExtend;
+import org.aksw.jena.proxy.algebra.udg.TransformUnionDefaultGraph;
 import org.apache.jena.graph.Node;
 import org.apache.jena.graph.NodeFactory;
 import org.apache.jena.query.Query;
 import org.apache.jena.sparql.ARQConstants;
+import org.apache.jena.sparql.algebra.Algebra;
 import org.apache.jena.sparql.algebra.Op;
-import org.apache.jena.sparql.algebra.OpAsQuery;
 import org.apache.jena.sparql.algebra.Transformer;
 import org.apache.jena.sparql.algebra.op.OpGroup;
 import org.apache.jena.sparql.algebra.optimize.Optimize;
@@ -50,7 +50,6 @@ import org.apache.jena.sparql.algebra.optimize.RewriteFactory;
 import org.apache.jena.sparql.core.DatasetGraph;
 import org.apache.jena.sparql.core.DatasetGraphMapLink;
 import org.apache.jena.sparql.core.GraphView;
-import org.apache.jena.sparql.core.Var;
 import org.apache.jena.sparql.engine.Plan;
 import org.apache.jena.sparql.engine.QueryEngineFactory;
 import org.apache.jena.sparql.engine.QueryIterator;
@@ -61,14 +60,6 @@ import org.apache.jena.sparql.engine.iterator.QueryIterCommonParent;
 import org.apache.jena.sparql.engine.main.QueryEngineMain;
 import org.apache.jena.sparql.expr.aggregate.*;
 import org.apache.jena.sparql.service.ServiceExecutorRegistry;
-import org.apache.jena.sparql.syntax.Element;
-import org.apache.jena.sparql.syntax.ElementData;
-import org.apache.jena.sparql.syntax.ElementGroup;
-import org.apache.jena.sparql.syntax.ElementNamedGraph;
-import org.apache.jena.sparql.syntax.ElementService;
-import org.apache.jena.sparql.syntax.ElementUnion;
-import org.apache.jena.sparql.syntax.syntaxtransform.ElementTransformCopyBase;
-import org.apache.jena.sparql.syntax.syntaxtransform.QueryTransformOps;
 import org.apache.jena.sparql.util.Context;
 import org.apache.jena.sparql.util.Symbol;
 
@@ -141,13 +132,17 @@ public class QueryEngineFactoryProxyGraphs implements QueryEngineFactory {
                                                         QueryEngineFactoryProxyGraphs::canDelegate),
                                                 planned);
                                 planned = TransformDistinctPlacement.rewrite(planned, true);
-                                planned = Transformer.transformSkipService(
-                                    new TransformDistinctService(service -> services.contains(service.getService())), planned);
+                                planned =
+                                        Transformer.transformSkipService(
+                                                new TransformDistinctService(
+                                                        service -> services.contains(service.getService())),
+                                                planned);
                                 // Add execution extensions last, after standard scoping and TopN placement.
                                 planned = downstream.rewrite(planned);
                                 planned = Transformer.transformSkipService(new TransformOrderUnion(), planned);
-                                return Transformer.transformSkipService(new TransformOrderService(
-                                        service -> services.contains(service.getService())), planned);
+                                return Transformer.transformSkipService(
+                                        new TransformOrderService(service -> services.contains(service.getService())),
+                                        planned);
                             };
                         });
     }
@@ -170,43 +165,25 @@ public class QueryEngineFactoryProxyGraphs implements QueryEngineFactory {
         return result;
     }
 
-    /** Whether a pattern switches graphs in the current dataset (outside SERVICE). */
-    private static boolean hasLocalGraph(Element pattern) {
-        Query query = new Query();
-        query.setQuerySelectType();
-        query.setQueryResultStar(true);
-        query.setQueryPattern(pattern);
-        Query withoutGraphs =
-                QueryTransformOps.transform(
-                        query,
-                        new ElementTransformCopyBase() {
-                            @Override
-                            public Element transform(ElementNamedGraph element, Node name, Element child) {
-                                return new ElementData();
-                            }
-
-                            @Override
-                            public Element transform(ElementService element, Node service, Element child) {
-                                return element;
-                            }
-                        });
-        // QueryTransformOps also visits subqueries and EXISTS/NOT EXISTS expressions.
-        return !query.equals(withoutGraphs);
-    }
-
     @Override
     public boolean accept(Query query, DatasetGraph dataset, Context context) {
-        return dataset != null && enabled(dataset, context) && !proxyGraphs(dataset).isEmpty();
+        return dataset instanceof DatasetGraphMapLink
+                && enabled(dataset, context)
+                && (ProxyDatasetSettings.unionDefaultGraph(dataset, context)
+                        || !proxyGraphs(dataset).isEmpty());
     }
 
     @Override
     public boolean accept(Op op, DatasetGraph dataset, Context context) {
-        return dataset != null && enabled(dataset, context) && !proxyGraphs(dataset).isEmpty();
+        return dataset instanceof DatasetGraphMapLink
+                && enabled(dataset, context)
+                && (ProxyDatasetSettings.unionDefaultGraph(dataset, context)
+                        || !proxyGraphs(dataset).isEmpty());
     }
 
     @Override
     public Plan create(Op op, DatasetGraph dataset, Binding binding, Context context) {
-        return create(OpAsQuery.asQuery(op), dataset, binding, context);
+        return createPlan(op, null, dataset, binding, context);
     }
 
     @Override
@@ -215,6 +192,16 @@ public class QueryEngineFactoryProxyGraphs implements QueryEngineFactory {
             throw new UnsupportedOperationException(
                     "Proxy graph federation does not support dataset clauses or DESCRIBE");
         }
+        Query input = query.cloneQuery();
+        if (input.isSelectType() && input.isQueryResultStar()) {
+            input.getResultVars();
+            input.setQueryResultStar(false);
+        }
+        return createPlan(Algebra.compile(input), input, dataset, binding, context);
+    }
+
+    private Plan createPlan(
+            Op op, Query query, DatasetGraph dataset, Binding binding, Context context) {
         if (dataset.getDefaultGraph() instanceof GraphView view
                 && view.getDataset() instanceof DatasetGraphOverRDFLink) {
             throw new UnsupportedOperationException(
@@ -223,17 +210,20 @@ public class QueryEngineFactoryProxyGraphs implements QueryEngineFactory {
         Map<Node, GraphView> views = proxyGraphs(dataset);
         Map<Node, GraphView> routes = new LinkedHashMap<>();
         Map<Node, Node> services = new LinkedHashMap<>();
-        // The UUID avoids clashes with user-written SERVICE IRIs that reuse a graph name; the prefix aids debugging.
+        // The UUID avoids clashes with user-written SERVICE IRIs that reuse a graph name; the prefix
+        // aids debugging.
         views.forEach(
                 (name, view) -> {
                     String graphName = name.isURI() ? name.getURI() : name.toString();
                     String prefix = URLEncoder.encode(graphName, StandardCharsets.UTF_8);
-                    Node service = NodeFactory.createURI("urn:jena-proxy:graph:" + prefix + ":" + UUID.randomUUID());
+                    Node service =
+                            NodeFactory.createURI("urn:jena-proxy:graph:" + prefix + ":" + UUID.randomUUID());
                     services.put(name, service);
                     routes.put(service, view);
                 });
-        Context requestContext = context.copy();
-        ServiceExecutorRegistry registry = ServiceExecutorRegistry.chooseRegistry(context).copy();
+        Context requestContext = ProxyDatasetSettings.requestContext(dataset, context);
+        ServiceExecutorRegistry registry =
+                ServiceExecutorRegistry.chooseRegistry(requestContext).copy();
         registry.add(
                 (opExecute, opOriginal, parent, execCxt) -> {
                     Node serviceNode = opExecute.getService();
@@ -268,51 +258,24 @@ public class QueryEngineFactoryProxyGraphs implements QueryEngineFactory {
         if (binding.isEmpty()) {
             configureOptimizer(requestContext, Set.copyOf(routes.keySet()));
         }
-        Query input = query.cloneQuery();
-        if (input.isSelectType() && input.isQueryResultStar()) {
-            input.getResultVars();
-            input.setQueryResultStar(false);
-        }
-        Query rewritten =
-                QueryTransformOps.transform(
-                        input,
-                        new ElementTransformCopyBase() {
-                            private Element proxyPattern(Node name, Element pattern, Element transformedPattern) {
-                                if (!services.containsKey(name) || hasLocalGraph(pattern)) {
-                                    // A nested GRAPH resolves against the composite dataset, not
-                                    // the remote dataset. Keep this scope local and retain the
-                                    // recursively rewritten children, which may still delegate.
-                                    return new ElementNamedGraph(name, transformedPattern);
-                                }
-                                return new ElementService(services.get(name), pattern, false);
-                            }
-
-                            @Override
-                            public Element transform(ElementNamedGraph element, Node name, Element child) {
-                                if (!name.isVariable()) {
-                                    return proxyPattern(name, element.getElement(), child);
-                                }
-                                ElementUnion union = new ElementUnion();
-                                dataset
-                                        .listGraphNodes()
-                                        .forEachRemaining(
-                                                alias -> {
-                                                    ElementGroup branch = new ElementGroup();
-                                                    ElementData value = new ElementData();
-                                                    value.add(Var.alloc(name));
-                                                    value.add(BindingFactory.binding(Var.alloc(name), alias));
-                                                    branch.addElement(value);
-                                                    branch.addElement(proxyPattern(alias, element.getElement(), child));
-                                                    union.addElement(branch);
-                                                });
-                                return union.getElements().isEmpty() ? new ElementData() : union;
-                            }
-
-                            @Override
-                            public Element transform(ElementService element, Node service, Element child) {
-                                return element;
-                            }
-                        });
-        return new QueryEngineMain(rewritten, dataset, binding, requestContext).getPlan();
+        // UDG changes query semantics and must run before source selection, even
+        // when ARQ optimization is disabled. Keep the UDG and routing rules separate.
+        Op virtual =
+                ProxyDatasetSettings.unionDefaultGraph(dataset, requestContext)
+                        ? TransformUnionDefaultGraph.rewrite(op, requestContext)
+                        : op;
+        Op routed =
+                TransformProxyGraphRouting.rewrite(
+                        virtual,
+                        org.apache.jena.atlas.iterator.Iter.toList(dataset.listGraphNodes()),
+                        services);
+        if (query == null)
+            return new QueryEngineMain(routed, dataset, binding, requestContext).getPlan();
+        return new QueryEngineMain(query, dataset, binding, requestContext) {
+            @Override
+            protected Op createOp(Query ignored) {
+                return routed;
+            }
+        }.getPlan();
     }
 }
