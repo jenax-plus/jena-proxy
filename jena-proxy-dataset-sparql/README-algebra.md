@@ -6,6 +6,10 @@ and is intended to be extractable into a standalone algebra module. Individual
 transforms remain opt-in for other callers; the composite proxy engine now uses
 these planning phases by default in its execution request context.
 
+Union-default-graph virtualization lives separately in `org.aksw.jena.proxy.algebra.udg`.
+See [UDG semantics, strictness and tests](README-udg.md). It is opt-in; the RDFLink
+module can invoke it before graph routing when union-default-graph mode is enabled.
+
 ## Rules
 
 - `TransformGroupUnion`: split a group over a bag union into branch-local partial

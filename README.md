@@ -52,6 +52,7 @@ The SPARQL module includes an independent, opt-in `org.aksw.jena.proxy.algebra`
 package for aggregate-over-union splitting, group delegation to services, and
 pulling extensions above operators. See [rules, policies and composition](jena-proxy-dataset-sparql/README-algebra.md).
 The composite proxy query engine applies conservative count splitting and group delegation by default.
+See [AI_SUMMARY.md](AI_SUMMARY.md) for reproduced OpAsQuery limitations and suggested upstream fixes.
 
 ## Quick Start
 
@@ -133,7 +134,8 @@ and save the configuration as `federation.ttl`:
     ] ;
     fuseki:dataset <#dataset> .
 
-<#dataset> a ja:RDFDataset ;
+<#dataset> a dsg:DatasetProxy ;
+    dsg:unionDefaultGraph true ;
     ja:namedGraph [ ja:graphName <urn:service:wikidata> ; ja:graph <#wikidataView> ] ;
     ja:namedGraph [ ja:graphName <urn:service:dbpedia> ; ja:graph <#dbpediaView> ] ;
     ja:namedGraph [ ja:graphName <urn:service:dnb> ; ja:graph <#dnbView> ] .
@@ -203,7 +205,38 @@ rewrites and their limitations.
   the composite dataset and may fall back to `find()` and additional requests.
 - **Request settings:** Planning copies the execution request context and preserves
   the configured optimizer without modifying the dataset context. Non-empty
-  initial bindings retain the existing evaluation path.
+  initial bindings skip optional federation optimizations; UDG semantics still apply.
+
+#### Union default graph options
+
+`dsg:DatasetProxy` assembles an ordinary `DatasetGraphMapLink`, using the same
+`ja:defaultGraph` and `ja:namedGraph` properties as `ja:RDFDataset`. Its additional
+properties set dataset context options:
+
+| Property | Default | Effect |
+| --- | --- | --- |
+| `dsg:unionDefaultGraph` | `false` | Rewrites default-graph queries over the union of named graphs, including local graphs. |
+| `dsg:udgStrict` | `true` | Errors on unsupported UDG operations, such as default-graph property paths. Set false for best-effort handling. |
+| `dsg:udgDeduplicate` | `true` | Removes cross-graph triple duplicates. Set false for streaming scans over disjoint graph contents; overlapping graphs then contribute duplicates. |
+| `dsg:proxyGraphsEnabled` | Automatic dispatch when proxy views are present | Set false to opt out of the composite engine, including UDG handling. |
+
+Explicit properties override `ja:context` entries on the dataset; request context
+settings override dataset defaults. UDG runs before graph routing, even when ARQ
+optimization is disabled. Without `dsg:unionDefaultGraph true`, proxy graph routing
+still activates automatically as before.
+
+An existing `ja:RDFDataset` can enable the same mode through its context:
+
+```turtle
+<#dataset> ja:context [
+    ja:cxtName dsg:unionDefaultGraph ;
+    ja:cxtValue true
+] .
+```
+
+The programmatic enable symbol is `ProxyDatasetSettings.UNION_DEFAULT_GRAPH`;
+strictness and deduplication use `TransformUnionDefaultGraph.STRICT` and
+`TransformUnionDefaultGraph.DEDUPLICATE`. See [UDG details](jena-proxy-dataset-sparql/README-udg.md).
 
 #### Disabling federation
 
@@ -225,7 +258,7 @@ dataset setting.
 #### Scope and limitations
 
 - Composite dispatch supports Jena's `DatasetGraphMapLink` (including the
-  `ja:RDFDataset` assembler) with proxy named graphs and a local default graph.
+  `ja:RDFDataset` and `dsg:DatasetProxy` assemblers) with proxy named graphs and a local default graph.
   Local named graphs can coexist with proxy graphs.
 - Single graph views support SELECT, ASK and CONSTRUCT, including subqueries,
   expressions and property paths. The view has no named graphs of its own.
@@ -233,8 +266,8 @@ dataset setting.
   DESCRIBE requires a separate solution because ARQ's description handlers
   access the graph outside the query plan; use CONSTRUCT for viewer queries.
 - Arbitrary graph/dataset wrappers and inference graphs are not unwrapped,
-  because doing so could bypass their semantics. Graph unions are not part of
-  this optimization.
+  because doing so could bypass their semantics. UDG support uses query rewriting;
+  arbitrary graph-union wrappers are not specially recognized.
 - Rewriting operates on Jena SPARQL syntax; opaque endpoint-specific query text
   is not supported by this graph-scoping path.
 
@@ -342,7 +375,8 @@ This project is licensed under the [Apache License 2.0](LICENSE).
 ## Federation feature summary
 
 Federation planning is enabled automatically for `DatasetGraphMapLink` datasets
-with named proxy graph views, including those assembled with `ja:RDFDataset`.
+with named proxy graph views, including those assembled with `ja:RDFDataset` or
+`dsg:DatasetProxy`.
 Local and remote named graphs can coexist. See the [setup example](#proxy-graph-views-and-a-composite-dataset)
 and [algebra rules](jena-proxy-dataset-sparql/README-algebra.md) for details.
 
@@ -356,7 +390,8 @@ and [algebra rules](jena-proxy-dataset-sparql/README-algebra.md) for details.
 | ORDER BY | Sorts eligible branches remotely and merges sorted streams locally. | Variable/constant keys, ASC/DESC; endpoints must use compatible RDF term ordering. Computed keys and DISTINCT barriers retain local sorting. |
 | LIMIT / OFFSET | Preserves the global slice, including ARQ's TopN form. | Does not introduce per-service limits or offsets. |
 | Mixed local / remote graphs | Includes local branches in aggregation, duplicate elimination and ordered merging. | Local branches may still need local grouping or sorting. |
-| Execution settings | Copies the request context and preserves the configured optimizer. | No assembler opt-in required; `QueryEngineFactoryProxyGraphs.ENABLED = false` opts out. Non-empty initial bindings keep the existing path. |
+| Union default graph | Optional query rewriting makes named graphs accessible as a virtual default graph. | Enable with `dsg:unionDefaultGraph true`; strictness and cross-graph deduplication are configurable. |
+| Execution settings | Copies the request context and preserves the configured optimizer. | No assembler opt-in required; `QueryEngineFactoryProxyGraphs.ENABLED = false` opts out. Non-empty initial bindings skip optional federation optimizations. |
 | Request scheduling | Opens and reads service streams sequentially. | Parallel requests and batched correlated execution are not yet implemented. Blocked by the service enhancer PR which adds basic infrastructure. |
 
 ## Changelog

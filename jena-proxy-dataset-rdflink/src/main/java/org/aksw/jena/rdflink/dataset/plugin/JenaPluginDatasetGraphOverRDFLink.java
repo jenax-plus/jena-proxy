@@ -25,6 +25,7 @@ import org.aksw.jena.rdflink.dataset.DatasetGraphOverRDFLink;
 import org.aksw.jena.rdflink.dataset.QueryEngineFactoryDatasetGraphOverRDFLink;
 import org.aksw.jena.rdflink.dataset.QueryEngineFactoryProxyGraphs;
 import org.aksw.jena.rdflink.dataset.assembler.DatasetAssemblerHTTP;
+import org.aksw.jena.rdflink.dataset.assembler.DatasetAssemblerProxy;
 import org.apache.jena.sparql.engine.QueryEngineRegistry;
 import org.apache.jena.sparql.modify.UpdateEngineRegistry;
 import org.apache.jena.sys.JenaSubsystemLifecycle;
@@ -34,18 +35,14 @@ import org.apache.jena.sys.JenaSubsystemLifecycle;
  *
  * @since 0.7.0
  */
-public class JenaPluginDatasetGraphOverRDFLink
-    implements JenaSubsystemLifecycle
-{
-    /**
-     * Called by JenaSubsystemLifecycle.
-     */
-    public JenaPluginDatasetGraphOverRDFLink() {
-    }
+public class JenaPluginDatasetGraphOverRDFLink implements JenaSubsystemLifecycle {
+    /** Called by JenaSubsystemLifecycle. */
+    public JenaPluginDatasetGraphOverRDFLink() {}
 
     @Override
     public void start() {
         DatasetAssemblerHTTP.init();
+        DatasetAssemblerProxy.init();
 
         QueryEngineRegistry queryReg = QueryEngineRegistry.get();
         init(queryReg);
@@ -55,8 +52,7 @@ public class JenaPluginDatasetGraphOverRDFLink
     }
 
     @Override
-    public void stop() {
-    }
+    public void stop() {}
 
     /**
      * Initialize the plugin with a query engine registry.
@@ -69,13 +65,13 @@ public class JenaPluginDatasetGraphOverRDFLink
     }
 
     /**
-     * Initialize the plugin with an update engine registry.
-     * Currently a no-op as the update engine factory is not yet implemented.
+     * Initialize the plugin with an update engine registry. Currently a no-op as the update engine
+     * factory is not yet implemented.
      *
      * @param reg the update engine registry
      */
     public static void init(UpdateEngineRegistry reg) {
-         // reg.add(new UpdateEngineFactoryover());
+        // reg.add(new UpdateEngineFactoryover());
     }
 
     @Override
