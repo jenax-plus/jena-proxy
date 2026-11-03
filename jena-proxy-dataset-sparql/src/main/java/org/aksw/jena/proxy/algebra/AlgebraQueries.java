@@ -29,6 +29,7 @@ import org.apache.jena.query.Query;
 import org.apache.jena.sparql.algebra.Op;
 import org.apache.jena.sparql.algebra.OpAsQuery;
 import org.apache.jena.sparql.algebra.OpVars;
+import org.apache.jena.sparql.algebra.Transformer;
 import org.apache.jena.sparql.algebra.op.OpGroup;
 import org.apache.jena.sparql.algebra.op.OpOrder;
 import org.apache.jena.sparql.core.Var;
@@ -40,9 +41,9 @@ public final class AlgebraQueries {
     private AlgebraQueries() {}
 
     /**
-     * Like OpAsQuery.asQuery, but explicitly project bare Group results (also under Order). OpAsQuery normally
-     * expects the compiled Project/Extend/Group shape. For a bare Group its SELECT * omits aggregate
-     * expressions from serialized SPARQL.
+     * Like OpAsQuery.asQuery, but explicitly project bare Group results (also under Order). OpAsQuery
+     * normally expects the compiled Project/Extend/Group shape. For a bare Group its SELECT * omits
+     * aggregate expressions from serialized SPARQL.
      *
      * @param op the operation to serialize
      * @return a query with the group's variables and aggregate expressions explicitly projected
@@ -77,7 +78,8 @@ public final class AlgebraQueries {
      * Restore scoped names without collapsing distinct variables, and give ARQ's allocated variables
      * explicit wire aliases. Otherwise serializers may omit their names (for example SELECT
      * (count(*)) for the internal variable ?.0). Apply outputMapping to returned bindings before
-     * joining them locally.
+     * joining them locally. Remote ORDER/DISTINCT modifiers are then normalized to avoid unnecessary
+     * subqueries; this does not change local execution plans.
      *
      * @param op the operation to rename and serialize
      * @return the renamed query and its output-variable mapping
@@ -105,6 +107,8 @@ public final class AlgebraQueries {
                         op);
         Map<Var, Var> outputs = new HashMap<>();
         OpVars.visibleVars(op).forEach(original -> outputs.put(toRemote.get(original), original));
-        return new PreparedQuery(asQuery(renamed), outputs);
+        Op normalized =
+                Transformer.transformSkipService(new TransformOrderDistinctCanonicalize(), renamed);
+        return new PreparedQuery(asQuery(normalized), outputs);
     }
 }

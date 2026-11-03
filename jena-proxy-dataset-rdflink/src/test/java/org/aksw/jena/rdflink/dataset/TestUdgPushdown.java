@@ -35,6 +35,7 @@ import org.apache.jena.sparql.core.*;
 import org.apache.jena.sparql.engine.binding.*;
 import org.apache.jena.sparql.exec.QueryExec;
 import org.apache.jena.sparql.util.Context;
+import org.apache.jena.sparql.syntax.*;
 import org.junit.jupiter.api.Test;
 
 class TestUdgPushdown {
@@ -95,10 +96,19 @@ class TestUdgPushdown {
             assertFalse(query.hasLimit(),"global slice must not become per-service LIMIT");
         }
     }
+    private static void flatDistinctRequests(Fixture f) {
+        for (Query query : f.sent) {
+            assertTrue(query.isDistinct(), query.toString());
+            ElementWalker.walk(query.getQueryPattern(), new ElementVisitorBase() {
+                @Override public void visit(ElementSubQuery subquery) { fail("Unexpected remote subquery: " + query); }
+            });
+        }
+    }
     @Test void udgScansUseSortedPartialResultsLocallyAndOverHttp() {
         for(boolean http:List.of(false,true))for(boolean dedup:List.of(false,true))try(Fixture f=new Fixture(http,dedup)) {
             var result=rows(f.dataset,"SELECT * {?s ?p ?o} ORDER BY ?s",null);
             orderedRequests(f,vars("s","p","o"));
+            if (dedup) flatDistinctRequests(f);
             assertEquals(dedup?9:10,result.size());
             assertEquals(result.stream().map(b->b.get(Var.alloc("s")).getURI()).sorted().toList(),
                     result.stream().map(b->b.get(Var.alloc("s")).getURI()).toList());
@@ -109,6 +119,7 @@ class TestUdgPushdown {
         for(boolean http:List.of(false,true))for(boolean dedup:List.of(false,true))try(Fixture f=new Fixture(http,dedup)) {
             var result=rows(f.dataset,"SELECT DISTINCT ?p {?s ?p ?o} ORDER BY ?s",null);
             orderedRequests(f,vars("p","s"));
+            flatDistinctRequests(f);
             assertEquals(5,result.size());
             assertTrue(result.stream().allMatch(b->b.size()==1&&b.contains(Var.alloc("p"))));
             var names=result.stream().map(b->b.get(Var.alloc("p")).getURI()).toList();
@@ -128,6 +139,7 @@ class TestUdgPushdown {
         for(boolean dedup:List.of(false,true))try(Fixture f=new Fixture(true,dedup)) {
             var result=rows(f.dataset,"SELECT DISTINCT ?p {?s ?p ?o} ORDER BY ?p LIMIT 3 OFFSET 1",null);
             orderedRequests(f,vars("p"));
+            flatDistinctRequests(f);
             assertEquals(List.of("urn:pB","urn:pC","urn:pD"),result.stream().map(b->b.get(Var.alloc("p")).getURI()).toList());
             f.sent.clear();
             result=rows(f.dataset,"SELECT DISTINCT ?p {?s ?p ?o}",null);
@@ -158,6 +170,7 @@ class TestUdgPushdown {
                     NodeFactory.createLiteralString("extra")));
             var result = rows(f.dataset, "SELECT DISTINCT ?p {?s ?p ?o} ORDER BY ?s", null);
             orderedRequests(f, vars("p", "s"));
+            flatDistinctRequests(f);
             assertEquals(5, result.size());
             for (Query query : f.sent) {
                 try (var exec = QueryExec.dataset(f.backend).query(query).build()) {

@@ -32,7 +32,14 @@ module can invoke it before graph routing when union-default-graph mode is enabl
   SELECT * without aggregate expressions in the SPARQL text.
   `prepareForRemote` additionally restores scoped variables without collisions and
   gives allocated variables explicit wire aliases, returning the output mapping
-  needed to restore received bindings.
+  needed to restore received bindings. Before serialization it applies
+  `TransformOrderDistinctCanonicalize`: eligible `Order(Distinct(...))` fragments
+  become `SELECT DISTINCT ... ORDER BY ...` at one query level. Redundant adjacent
+  DISTINCTs, including directly below a plain projection, are collapsed. Wider projections
+  retain sort keys; hidden projection variables and LIMIT/OFFSET boundaries remain
+  intact. Existing nested SERVICE bodies stay opaque. This wire normalization is
+  separate from client-side order placement and retains the ordinary DISTINCT
+  order-preservation contract (including the upstream spill caveat below).
 - `TransformPullExtend`: consolidated, self-contained adaptation of the Jenax
   `TransformPullExtend` and `ProjectExtend` by Claus Stadler, extended with the
   group case. Retains union, join, lateral, filter, slice, projection and DISTINCT
