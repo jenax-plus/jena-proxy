@@ -52,7 +52,6 @@ The SPARQL module includes an independent, opt-in `org.aksw.jena.proxy.algebra`
 package for aggregate-over-union splitting, group delegation to services, and
 pulling extensions above operators. See [rules, policies and composition](jena-proxy-dataset-sparql/README-algebra.md).
 The composite proxy query engine applies conservative count splitting and group delegation by default.
-See [AI_SUMMARY.md](AI_SUMMARY.md) for reproduced OpAsQuery limitations and suggested upstream fixes.
 
 ## Quick Start
 
