@@ -52,7 +52,6 @@ The SPARQL module includes an independent, opt-in `org.aksw.jena.proxy.algebra`
 package for aggregate-over-union splitting, group delegation to services, and
 pulling extensions above operators. See [rules, policies and composition](jena-proxy-dataset-sparql/README-algebra.md).
 The composite proxy query engine applies conservative count splitting and group delegation by default.
-See [AI_SUMMARY.md](AI_SUMMARY.md) for reproduced OpAsQuery limitations and suggested upstream fixes.
 
 ## Quick Start
 
@@ -237,6 +236,16 @@ An existing `ja:RDFDataset` can enable the same mode through its context:
 The programmatic enable symbol is `ProxyDatasetSettings.UNION_DEFAULT_GRAPH`;
 strictness and deduplication use `TransformUnionDefaultGraph.STRICT` and
 `TransformUnionDefaultGraph.DEDUPLICATE`. See [UDG details](jena-proxy-dataset-sparql/README-udg.md).
+
+The domain accessor `ProxyDatasetSettings.setUnionDefaultGraph(context, enabled)`
+writes `http://jena.apache.org/TDB#unionDefaultGraph`, the standard TDB2-compatible
+context symbol. `isUnionDefaultGraph(context)` reads that mode without exposing
+the symbol to callers. The former `https://w3id.org/aksw/jena/dataset#unionDefaultGraph`
+context symbol remains accepted; merged request contexts publish the standard
+symbol for extensions such as Values Service. Request settings override dataset
+settings across these aliases; the standard symbol wins when both are explicitly
+set in the same source context. The assembler property `dsg:unionDefaultGraph`
+is unchanged.
 
 #### Union default graph queries expected to work
 

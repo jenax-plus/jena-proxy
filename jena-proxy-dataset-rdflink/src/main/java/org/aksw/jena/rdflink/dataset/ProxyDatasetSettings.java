@@ -28,9 +28,12 @@ import org.apache.jena.sparql.util.Symbol;
 /** Dataset-level proxy options, with request settings taking precedence. */
 public final class ProxyDatasetSettings {
     /**
-     * Enable query rewriting of default graph access into named-graph union access. Default false.
+     * Enable default-graph union rewriting using the TDB2-compatible symbol. Default false.
      */
     public static final Symbol UNION_DEFAULT_GRAPH =
+            Symbol.create("http://jena.apache.org/TDB#unionDefaultGraph");
+
+    private static final Symbol LEGACY_UNION_DEFAULT_GRAPH =
             Symbol.create("https://w3id.org/aksw/jena/dataset#unionDefaultGraph");
 
     private ProxyDatasetSettings() {}
@@ -43,7 +46,12 @@ public final class ProxyDatasetSettings {
      * @return a merged copy of the dataset and request contexts
      */
     public static Context requestContext(DatasetGraph dataset, Context request) {
-        return Context.mergeCopy(dataset.getContext(), request);
+        Context result = Context.mergeCopy(dataset.getContext(), request);
+        if (hasUnionDefaultGraphSetting(request) || hasUnionDefaultGraphSetting(dataset.getContext())) {
+            // Publish one standard flag for consumers such as SERVICE extensions.
+            setUnionDefaultGraph(result, unionDefaultGraph(dataset, request));
+        }
+        return result;
     }
 
     /**
@@ -54,8 +62,26 @@ public final class ProxyDatasetSettings {
      * @return whether union-default-graph rewriting is enabled
      */
     public static boolean unionDefaultGraph(DatasetGraph dataset, Context request) {
-        Context settings =
-                request != null && request.isDefined(UNION_DEFAULT_GRAPH) ? request : dataset.getContext();
-        return settings.isTrue(UNION_DEFAULT_GRAPH);
+        Context settings = hasUnionDefaultGraphSetting(request) ? request : dataset.getContext();
+        return isUnionDefaultGraph(settings);
+    }
+
+    private static boolean hasUnionDefaultGraphSetting(Context context) {
+        return context != null && (context.isDefined(UNION_DEFAULT_GRAPH)
+                || context.isDefined(LEGACY_UNION_DEFAULT_GRAPH));
+    }
+
+    /** Read UDG mode, accepting the former proxy symbol for compatibility. */
+    public static boolean isUnionDefaultGraph(Context context) {
+        if (context == null) return false;
+        return context.isDefined(UNION_DEFAULT_GRAPH)
+                ? context.isTrue(UNION_DEFAULT_GRAPH)
+                : context.isTrue(LEGACY_UNION_DEFAULT_GRAPH);
+    }
+
+    /** Set UDG mode using Jena's TDB2-compatible symbol. */
+    public static void setUnionDefaultGraph(Context context, boolean enabled) {
+        context.set(UNION_DEFAULT_GRAPH, enabled);
+        context.remove(LEGACY_UNION_DEFAULT_GRAPH);
     }
 }
