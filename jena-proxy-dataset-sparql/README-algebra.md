@@ -211,6 +211,14 @@ each variable-allocating transform with the complete current algebra, not just a
 subtree. Preserve the engine's scope-renaming phase and use
 `transformSkipService` so local planning does not rewrite existing remote bodies.
 
+Proxy graph routing uses local `GRAPH ?g {}` selectors plus alias filters within
+LATERAL right operands. Assigning graph aliases through VALUES there would let
+Jena's LATERAL injector overwrite their constraints. Scope tracking includes
+subqueries, nested LATERAL and expression patterns; existing SERVICE bodies stay
+opaque. Outside correlated scopes the usual singleton-table routing remains.
+These selectors can form a conservative barrier to additional pushdown inside
+correlated scopes, while whole-pattern SERVICE delegation remains available.
+
 The proxy engine installs this pipeline before its existing optimizer, restricted
 to its own query-local service routes and standard aggregates over variables or
 constants. Cross-partition splitting uses the conservative count policy. Complete
