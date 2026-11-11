@@ -435,7 +435,7 @@ Newest versions first.
 
 | Version | Highlights |
 | --- | --- |
-| [v0.9.0](https://github.com/jenax-plus/jena-proxy/releases/tag/v0.9.0) | Fixes graph correlation through LATERAL and nested subqueries, preserving per-input LIMIT/OFFSET without changes to Jena. Adds quad-form graph enumeration support. |
+| [v0.8.6](https://github.com/jenax-plus/jena-proxy/releases/tag/v0.8.6) | Fixes graph correlation through LATERAL and nested subqueries, preserving per-input LIMIT/OFFSET without changes to Jena. Adds quad-form graph enumeration support. |
 | [v0.8.4](https://github.com/jenax-plus/jena-proxy/releases/tag/v0.8.4) | Optimizes rewrites for union-default-graph. |
 | [v0.8.3](https://github.com/jenax-plus/jena-proxy/releases/tag/v0.8.3) | Optimizes union-default-graph queries with projection, DISTINCT and ORDER BY pushdown, including remote sorting with local merging and hidden sort-key handling. |
 | [v0.8.2](https://github.com/jenax-plus/jena-proxy/releases/tag/v0.8.2) | Improved and optimized union default graph support. |
