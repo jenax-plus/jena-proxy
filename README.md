@@ -417,6 +417,7 @@ and [algebra rules](jena-proxy-dataset-sparql/README-algebra.md) for details.
 | --- | --- | --- |
 | Graph routing | Delegates each eligible `GRAPH` pattern to its backing RDFLink endpoint. | Local graph aliases can select remote named graphs or endpoint default graphs. |
 | Source selection | Constant graph names and graph-selection `VALUES` avoid requests to unselected services. | General joins remain local; correlated joins can issue requests per input binding. |
+| LATERAL | Preserves graph correlation through subqueries and per-input LIMIT/OFFSET. | Correlated graph selectors stay local; ordinary Jena restrictions on overlapping VALUES assignments still apply. |
 | Counts across graphs | Computes partial `COUNT(*)` / `COUNT(?var)` remotely and sums contributions locally. | Conservative non-DISTINCT count splitting is enabled by default. |
 | Aggregation per service | Delegates complete eligible groups, including standard DISTINCT aggregates, SUM and AVG. | Does not split these aggregates across services by default. |
 | DISTINCT | Places eligible duplicate elimination in branches and services, including union-default-graph scans. | Retains final duplicate elimination across branches and the final query projection. |
@@ -434,7 +435,8 @@ Newest versions first.
 
 | Version | Highlights |
 | --- | --- |
-| [v0.8.4](https://github.com/jenax-plus/jena-proxy/releases/tag/v0.8.4) | Optimizes rewrites for union-default-graph.
+| [v0.9.0](https://github.com/jenax-plus/jena-proxy/releases/tag/v0.9.0) | Fixes graph correlation through LATERAL and nested subqueries, preserving per-input LIMIT/OFFSET without changes to Jena. Adds quad-form graph enumeration support. |
+| [v0.8.4](https://github.com/jenax-plus/jena-proxy/releases/tag/v0.8.4) | Optimizes rewrites for union-default-graph. |
 | [v0.8.3](https://github.com/jenax-plus/jena-proxy/releases/tag/v0.8.3) | Optimizes union-default-graph queries with projection, DISTINCT and ORDER BY pushdown, including remote sorting with local merging and hidden sort-key handling. |
 | [v0.8.2](https://github.com/jenax-plus/jena-proxy/releases/tag/v0.8.2) | Improved and optimized union default graph support. |
 | [v0.8.1](https://github.com/jenax-plus/jena-proxy/releases/tag/v0.8.1) | Fixed broken jena-proxy-bom. |

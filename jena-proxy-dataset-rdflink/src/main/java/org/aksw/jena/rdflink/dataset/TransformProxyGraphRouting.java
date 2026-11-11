@@ -21,9 +21,12 @@
 
 package org.aksw.jena.rdflink.dataset;
 
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 import org.apache.jena.graph.Node;
 import org.apache.jena.sparql.algebra.*;
 import org.apache.jena.sparql.algebra.op.*;
@@ -33,11 +36,23 @@ import org.apache.jena.sparql.core.BasicPattern;
 import org.apache.jena.sparql.core.Quad;
 import org.apache.jena.sparql.core.Var;
 import org.apache.jena.sparql.engine.binding.BindingFactory;
+import org.apache.jena.sparql.expr.E_SameTerm;
+import org.apache.jena.sparql.expr.ExprTransformCopy;
+import org.apache.jena.sparql.expr.ExprVar;
+import org.apache.jena.sparql.expr.NodeValue;
 
-/** Routes composite GRAPH algebra to services without serializing the local plan as a query. */
+/**
+ * Routes composite GRAPH algebra to services without serializing the local plan as a query. Within
+ * LATERAL right operands, graph aliases are matched by local GRAPH selectors rather than assigned
+ * by VALUES: Jena's LATERAL injector overwrites conflicting table bindings, which can otherwise
+ * report one service's results under another graph name. Scope tracking includes subqueries, nested
+ * LATERAL and expression patterns, while existing SERVICE bodies stay opaque. Outside those scopes,
+ * singleton tables retain the usual pushdown optimizations.
+ */
 final class TransformProxyGraphRouting extends TransformCopy {
     private final List<Node> graphs;
     private final Map<Node, Node> services;
+    private final Deque<Scope> scopes = new ArrayDeque<>();
 
     private TransformProxyGraphRouting(List<Node> graphs, Map<Node, Node> services) {
         this.graphs = List.copyOf(graphs);
@@ -45,7 +60,98 @@ final class TransformProxyGraphRouting extends TransformCopy {
     }
 
     static Op rewrite(Op root, List<Node> graphs, Map<Node, Node> services) {
-        return Transformer.transformSkipService(new TransformProxyGraphRouting(graphs, services), root);
+        TransformProxyGraphRouting worker = new TransformProxyGraphRouting(graphs, services);
+        return Transformer.transformSkipService(
+                worker,
+                new ExprTransformCopy(),
+                root,
+                new VisitEach(worker::enter),
+                new VisitEach(worker::leave));
+    }
+
+    private static final class Scope {
+        final Op op;
+        final boolean correlated;
+        int children;
+
+        Scope(Op op, boolean correlated) {
+            this.op = op;
+            this.correlated = correlated;
+        }
+    }
+
+    private void enter(Op op) {
+        Scope parent = scopes.peek();
+        // Count visits rather than compare child identities: both operands can
+        // share the same Op object. A LATERAL has no expression children.
+        boolean correlated =
+                parent != null
+                        && (parent.correlated || parent.op instanceof OpLateral && parent.children == 1);
+        if (parent != null) ++parent.children;
+        scopes.push(new Scope(op, correlated));
+    }
+
+    private void leave(Op op) {
+        if (scopes.pop().op != op) throw new IllegalStateException("Unbalanced routing scope");
+    }
+
+    /** Adapt traversal hooks without walking children a second time, including opaque extensions. */
+    private static final class VisitEach extends OpVisitorByTypeBase {
+        private final Consumer<Op> action;
+
+        VisitEach(Consumer<Op> action) {
+            this.action = action;
+        }
+
+        @Override
+        protected void visit0(Op0 op) {
+            action.accept(op);
+        }
+
+        @Override
+        protected void visit1(Op1 op) {
+            action.accept(op);
+        }
+
+        @Override
+        protected void visit2(Op2 op) {
+            action.accept(op);
+        }
+
+        @Override
+        protected void visitN(OpN op) {
+            action.accept(op);
+        }
+
+        @Override
+        protected void visitFilter(OpFilter op) {
+            action.accept(op);
+        }
+
+        @Override
+        protected void visitLeftJoin(OpLeftJoin op) {
+            action.accept(op);
+        }
+
+        @Override
+        protected void visitExt(OpExt op) {
+            action.accept(op);
+        }
+    }
+
+    /**
+     * Match an alias without rebinding a LATERAL input variable. GRAPH enumeration stays local; the
+     * alias filter rejects other branches before their service is evaluated. Unlike a filter on
+     * VALUES, it does not depend on retaining a tautology over a preassigned table value. These
+     * generated selectors must not undergo graph routing again.
+     */
+    private Op selector(Var var, Node alias) {
+        if (!scopes.isEmpty() && scopes.peek().correlated) {
+            return OpFilter.filter(
+                    new E_SameTerm(new ExprVar(var), NodeValue.makeNode(alias)),
+                    new OpGraph(var, OpTable.unit()));
+        }
+        return OpTable.create(new TableData(List.of(var), List.of(BindingFactory.binding(var, alias))));
     }
 
     private static boolean switchesGraph(Op body) {
@@ -102,12 +208,18 @@ final class TransformProxyGraphRouting extends TransformCopy {
         Op result = null;
         for (Node alias : graphs) {
             Var var = Var.alloc(name);
-            Op value =
-                    OpTable.create(new TableData(List.of(var), List.of(BindingFactory.binding(var, alias))));
+            Op value = selector(var, alias);
             Op branch = OpJoin.create(value, route(alias, graph.getSubOp(), child));
             result = result == null ? branch : OpUnion.create(result, branch);
         }
         return result;
+    }
+
+    @Override
+    public Op transform(OpDatasetNames names) {
+        // Quad-form GRAPH ?g {} becomes OpDatasetNames, which the generic
+        // in-memory executor cannot run. Enumeration needs only local metadata.
+        return new OpGraph(names.getGraphNode(), OpTable.unit());
     }
 
     @Override
