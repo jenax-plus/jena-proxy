@@ -190,12 +190,79 @@ final class TransformProxyGraphRouting extends TransformCopy {
         return result.get();
     }
 
+    private static boolean containsLateral(Op body) {
+        AtomicBoolean result = new AtomicBoolean();
+        Walker.walkSkipService(
+                body,
+                new OpVisitorBase() {
+                    @Override
+                    public void visit(OpLateral lateral) {
+                        result.set(true);
+                    }
+                },
+                null,
+                null,
+                null);
+        return result.get();
+    }
+
+    private static boolean readsActiveGraph(Op body) {
+        AtomicBoolean result = new AtomicBoolean();
+        Walker.walkSkipService(
+                body,
+                new OpVisitorBase() {
+                    @Override
+                    public void visit(OpBGP bgp) {
+                        if (!bgp.getPattern().isEmpty()) result.set(true);
+                    }
+
+                    @Override
+                    public void visit(OpTriple triple) {
+                        result.set(true);
+                    }
+
+                    @Override
+                    public void visit(OpPath path) {
+                        result.set(true);
+                    }
+                },
+                null,
+                null,
+                null);
+        return result.get();
+    }
+
+    /**
+     * Outer LATERAL injection descends into SERVICE bodies and adds parent bindings to unit tables.
+     * Serializing an inner LATERAL then creates illegal RHS VALUES assignments to its LHS variables.
+     * Keep these execution boundaries local and send maximal LATERAL-free graph-reading fragments
+     * instead. In particular, JSON assembly (BIND/UNION) remains local and per-input slices stay
+     * intact.
+     */
+    private Op routeAroundLateral(Node name, Op body) {
+        if (!containsLateral(body)) {
+            return readsActiveGraph(body) ? new OpService(services.get(name), body, false) : body;
+        }
+        if (body instanceof Op1 unary) return unary.copy(routeAroundLateral(name, unary.getSubOp()));
+        if (body instanceof Op2 binary)
+            return binary.copy(
+                    routeAroundLateral(name, binary.getLeft()), routeAroundLateral(name, binary.getRight()));
+        if (body instanceof OpN many)
+            return many.copy(
+                    many.getElements().stream().map(child -> routeAroundLateral(name, child)).toList());
+        throw new IllegalArgumentException("Cannot split LATERAL in " + body.getName());
+    }
+
     private Op route(Node name, Op originalBody, Op transformedBody) {
         Node service = services.get(name);
         if (service == null || switchesGraph(originalBody)) {
             // A nested graph switch resolves against the composite dataset, not
             // the selected remote graph. Preserve its transformed children locally.
             return new OpGraph(name, transformedBody);
+        }
+        if (containsLateral(originalBody)) {
+            // Preserve the active graph for any expressions evaluated locally.
+            return new OpGraph(name, routeAroundLateral(name, originalBody));
         }
         return new OpService(service, originalBody, false);
     }

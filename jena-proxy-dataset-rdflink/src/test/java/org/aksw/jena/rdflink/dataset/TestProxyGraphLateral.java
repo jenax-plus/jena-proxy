@@ -30,6 +30,8 @@ import org.apache.jena.fuseki.main.FusekiServer;
 import org.apache.jena.graph.*;
 import org.apache.jena.query.*;
 import org.apache.jena.rdflink.*;
+import org.apache.jena.riot.RDFDataMgr;
+import org.apache.jena.sparql.expr.NodeValue;
 import org.apache.jena.sparql.algebra.*;
 import org.apache.jena.sparql.algebra.op.*;
 import org.apache.jena.sparql.algebra.walker.Walker;
@@ -268,6 +270,166 @@ class TestProxyGraphLateral {
                 }
             }
         }
+    }
+
+    @Test
+    void countryLateralGroupedPropertyPathMatchesSuppliedBaciData() {
+        String query = """
+                SELECT * WHERE {
+                  ?country a <https://schema.projekt-provider.de/global#Country>
+                  LATERAL {
+                    SELECT ?g ?country (COUNT(*) AS ?c) {
+                      GRAPH ?g {
+                        ?s <https://schema.projekt-provider.de/baci#importer>/<https://schema.projekt-provider.de/global#hasCountry> ?country
+                      }
+                    } GROUP BY ?g ?country
+                  }
+                }
+                """;
+        Node graph = uri("service:baci");
+        Binding expected = BindingBuilder.create()
+                .add(Var.alloc("g"), graph)
+                .add(Var.alloc("country"), NodeFactory.createURI("https://data.projekt-provider.de/country/BRA"))
+                .add(Var.alloc("c"), NodeValue.makeInteger(10).asNode())
+                .build();
+        for (boolean http : List.of(false, true))
+            for (boolean unionDefault : List.of(false, true)) {
+                DatasetGraph countries = DatasetGraphFactory.create();
+                DatasetGraph baci = DatasetGraphFactory.create();
+                DatasetGraph reference = DatasetGraphFactory.createGeneral();
+                DatasetGraph composite = DatasetGraphFactory.createGeneral();
+                RDFDataMgr.read(countries, "lateral-country/part1.trig");
+                RDFDataMgr.read(baci, "lateral-country/part2.trig");
+                FusekiServer server = http ? FusekiServer.create().port(0)
+                        .add("/countries", countries).add("/baci", baci).build() : null;
+                if (server != null) server.start();
+                try {
+                    // Separate datasets/endpoints: the country source exposes its default
+                    // graph, while the BACI source exposes its named graph.
+                    composite.addGraph(graph, countryDataProxy(baci, server, "/baci").getGraph(graph));
+                    reference.addGraph(graph, baci.getGraph(graph));
+                    countries.getDefaultGraph().find().forEachRemaining(reference.getDefaultGraph()::add);
+                    if (unionDefault) {
+                        Node staticGraph = uri("service:static");
+                        composite.addGraph(staticGraph, countryDataProxy(countries, server, "/countries").getDefaultGraph());
+                        composite.getContext().set(ProxyDatasetSettings.UNION_DEFAULT_GRAPH, true);
+                        reference.addGraph(staticGraph, countries.getDefaultGraph());
+                        baci.getGraph(graph).find().forEachRemaining(reference.getDefaultGraph()::add);
+                        assertTrue(composite.getDefaultGraph().isEmpty());
+                    } else {
+                        countries.getDefaultGraph().find().forEachRemaining(composite.getDefaultGraph()::add);
+                    }
+                    for (boolean optimize : List.of(false, true)) {
+                        String label = "http=" + http + " unionDefault=" + unionDefault + " optimize=" + optimize;
+                        // Assert concrete bindings as well as parity with a materialized union.
+                        assertEquals(List.of(expected), rows(reference, query, optimize), "reference " + label);
+                        assertEquals(List.of(expected), rows(composite, query, optimize), label);
+                    }
+                } finally {
+                    composite.close();
+                    reference.close();
+                    if (server != null) server.stop();
+                    countries.close();
+                    baci.close();
+                }
+            }
+    }
+
+    @Test
+    void nestedLateralInsideRemoteGraphsKeepsPerInputLimitsAndMultiplicity() {
+        List<String> queries = List.of(
+                "SELECT ?g ?s ?item { VALUES ?c {<urn:countryValue> <urn:countryValue>} LATERAL { GRAPH ?g { {SELECT ?s ?c {?s <urn:p> ?x . ?x <urn:country> ?c} ORDER BY ?s LIMIT 2 OFFSET 1} LATERAL {BIND(?s AS ?item)} } } }",
+                "SELECT ?g ?s ?item ?copy { VALUES ?g {<urn:a> <urn:b>} LATERAL { GRAPH ?g { {SELECT ?s {?s <urn:p> ?x} ORDER BY ?s LIMIT 1} LATERAL { {BIND(?s AS ?item)} UNION {BIND(?s AS ?copy)} } } } }",
+                "SELECT ?count ?item { VALUES ?c {<urn:countryValue>} LATERAL { GRAPH <urn:b> { {SELECT ?c (COUNT(*) AS ?count) {?s <urn:p> ?x . ?x <urn:country> ?c} GROUP BY ?c} LATERAL {BIND(?count AS ?item)} } } }");
+        for (boolean http : List.of(false, true))
+            try (Fixture f = new Fixture(http)) {
+                for (boolean optimize : List.of(false, true))
+                    for (String query : queries) {
+                        assertEquals(bag(rows(f.expected, query, optimize)), bag(rows(f.composite, query, optimize)),
+                                "http=" + http + " optimize=" + optimize + " " + query);
+                    }
+            }
+    }
+
+    @Test
+    void graphqlGeneratedNestedLateralSurvivesTwoSourceHttpFederation() throws Exception {
+        for (boolean http : List.of(true, false)) {
+            DatasetGraph countries = DatasetGraphFactory.create();
+            DatasetGraph baci = DatasetGraphFactory.create();
+            RDFDataMgr.read(countries, "lateral-country/part1.trig");
+            Node graph = uri("service:baci");
+            Node brazil = NodeFactory.createURI("https://data.projekt-provider.de/country/BRA");
+            baci.add(graph, uri("observation"), NodeFactory.createURI("https://schema.projekt-provider.de/baci#importer"), uri("area"));
+            baci.add(graph, uri("area"), NodeFactory.createURI("https://schema.projekt-provider.de/global#hasCountry"), brazil);
+            DatasetGraph reference = DatasetGraphFactory.createGeneral();
+            DatasetGraph composite = DatasetGraphFactory.createGeneral();
+            FusekiServer server = http ? FusekiServer.create().port(0).add("/countries", countries).add("/baci", baci).build() : null;
+            if (server != null) server.start();
+            try {
+                countries.getDefaultGraph().find().forEachRemaining(reference.getDefaultGraph()::add);
+                baci.getGraph(graph).find().forEachRemaining(reference.getDefaultGraph()::add);
+                reference.addGraph(uri("service:static"), countries.getDefaultGraph());
+                reference.addGraph(graph, baci.getGraph(graph));
+                composite.addGraph(uri("service:static"), countryDataProxy(countries, server, "/countries").getDefaultGraph());
+                composite.addGraph(graph, countryDataProxy(baci, server, "/baci").getGraph(graph));
+                composite.getContext().set(ProxyDatasetSettings.UNION_DEFAULT_GRAPH, true);
+                for (boolean optimize : List.of(false, true))
+                    for (String variant : List.of("graph-iri", "default", "graph-of", "reported")) {
+                        String query;
+                        try (var in = getClass().getResourceAsStream("/lateral-country/graphql-" + variant + ".rq")) {
+                            assertNotNull(in);
+                            query = new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+                        }
+                        List<Binding> expected = rows(reference, query, optimize);
+                        assertEquals(variant.equals("reported") ? 3 : 5, expected.size());
+                        // The JSON assembler consumes state transitions in sequence.
+                        assertEquals(expected, rows(composite, query, optimize),
+                                "variant=" + variant + " http=" + http + " optimize=" + optimize);
+                    }
+            } finally {
+                composite.close();
+                reference.close();
+                if (server != null) server.stop();
+                countries.close();
+                baci.close();
+            }
+        }
+    }
+
+    private static DatasetGraphOverRDFLink countryDataProxy(DatasetGraph backend, FusekiServer server, String endpoint) {
+        return new DatasetGraphOverRDFLink(DsgSparqlExecutor.DEFAULT, false, false) {
+            @Override
+            public RDFLink newLink() {
+                RDFLink delegate = server != null
+                        ? RDFLinkHTTP.newBuilder().destination("http://localhost:" + server.getPort() + endpoint).build()
+                        : RDFLink.connect(new DatasetGraphWrapper(backend) {
+                            @Override
+                            public void close() {}
+                        });
+                return (RDFLink) Proxy.newProxyInstance(RDFLink.class.getClassLoader(), new Class<?>[]{RDFLink.class},
+                        (obj, method, args) -> {
+                            if (method.getName().equals("query") && args[0] instanceof Query query) {
+                                try {
+                                    QueryFactory.create(query.toString(), Syntax.syntaxARQ);
+                                } catch (RuntimeException e) {
+                                    throw new AssertionError("Invalid outbound query:\n" + query, e);
+                                }
+                            }
+                            try { return method.invoke(delegate, args); }
+                            catch (InvocationTargetException e) { throw e.getCause(); }
+                        });
+            }
+
+            @Override
+            public Iterator<Quad> find(Node g, Node s, Node p, Node o) {
+                throw new AssertionError("Dataset.find fallback");
+            }
+
+            @Override
+            public Iterator<Quad> findNG(Node g, Node s, Node p, Node o) {
+                throw new AssertionError("Dataset.findNG fallback");
+            }
+        };
     }
 
     private static int graphTables(Op root) {
