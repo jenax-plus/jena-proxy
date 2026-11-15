@@ -1,0 +1,297 @@
+<urn:service:baci> {
+
+<https://data.projekt-provider.de/baci/product/HS92/401699>
+        a       <http://www.w3.org/2004/02/skos/core#Concept>;
+        <http://www.w3.org/2004/02/skos/core#inScheme>
+                <https://data.projekt-provider.de/baci/scheme/HS92>;
+        <http://www.w3.org/2004/02/skos/core#notation>
+                "401699";
+        <http://www.w3.org/2004/02/skos/core#prefLabel>
+                "Rubber: vulcanised (other than hard rubber), articles n.e.s. in heading no. 4016, of non-cellular rubber" .
+
+<https://data.projekt-provider.de/baci/product/HS92/401693>
+        a       <http://www.w3.org/2004/02/skos/core#Concept>;
+        <http://www.w3.org/2004/02/skos/core#inScheme>
+                <https://data.projekt-provider.de/baci/scheme/HS92>;
+        <http://www.w3.org/2004/02/skos/core#notation>
+                "401693";
+        <http://www.w3.org/2004/02/skos/core#prefLabel>
+                "Rubber: vulcanised (other than hard rubber), gaskets, washers and other seals, of non-cellular rubber" .
+
+<https://data.projekt-provider.de/baci/product/HS92/400930>
+        a       <http://www.w3.org/2004/02/skos/core#Concept>;
+        <http://www.w3.org/2004/02/skos/core#inScheme>
+                <https://data.projekt-provider.de/baci/scheme/HS92>;
+        <http://www.w3.org/2004/02/skos/core#notation>
+                "400930";
+        <http://www.w3.org/2004/02/skos/core#prefLabel>
+                "Rubber: vulcanised (other than hard rubber), tubes, pipes and hoses, reinforced or otherwise combined only with textile materials, without fittings" .
+
+<https://data.projekt-provider.de/baci/product/HS92/392690>
+        a       <http://www.w3.org/2004/02/skos/core#Concept>;
+        <http://www.w3.org/2004/02/skos/core#inScheme>
+                <https://data.projekt-provider.de/baci/scheme/HS92>;
+        <http://www.w3.org/2004/02/skos/core#notation>
+                "392690";
+        <http://www.w3.org/2004/02/skos/core#prefLabel>
+                "Plastics: other articles n.e.s. in chapter 39" .
+
+<https://data.projekt-provider.de/baci/product/HS92/392350>
+        a       <http://www.w3.org/2004/02/skos/core#Concept>;
+        <http://www.w3.org/2004/02/skos/core#inScheme>
+                <https://data.projekt-provider.de/baci/scheme/HS92>;
+        <http://www.w3.org/2004/02/skos/core#notation>
+                "392350";
+        <http://www.w3.org/2004/02/skos/core#prefLabel>
+                "Plastics: stoppers, lids, caps and other closures, for the conveyance or packing of goods" .
+
+<https://data.projekt-provider.de/baci/product/HS92/330129>
+        a       <http://www.w3.org/2004/02/skos/core#Concept>;
+        <http://www.w3.org/2004/02/skos/core#inScheme>
+                <https://data.projekt-provider.de/baci/scheme/HS92>;
+        <http://www.w3.org/2004/02/skos/core#notation>
+                "330129";
+        <http://www.w3.org/2004/02/skos/core#prefLabel>
+                "Oils, essential: n.e.s. in heading no. 3301 (terpeneless or not), including concretes and absolutes" .
+
+<https://data.projekt-provider.de/baci/product/HS92/251512>
+        a       <http://www.w3.org/2004/02/skos/core#Concept>;
+        <http://www.w3.org/2004/02/skos/core#inScheme>
+                <https://data.projekt-provider.de/baci/scheme/HS92>;
+        <http://www.w3.org/2004/02/skos/core#notation>
+                "251512";
+        <http://www.w3.org/2004/02/skos/core#prefLabel>
+                "Marble and travertine: merely cut, by sawing or otherwise, into blocks or slabs of a rectangular (including square) shape, having a specific gravity of 2.5 or more" .
+
+<https://data.projekt-provider.de/baci/product/HS92/200600>
+        a       <http://www.w3.org/2004/02/skos/core#Concept>;
+        <http://www.w3.org/2004/02/skos/core#inScheme>
+                <https://data.projekt-provider.de/baci/scheme/HS92>;
+        <http://www.w3.org/2004/02/skos/core#notation>
+                "200600";
+        <http://www.w3.org/2004/02/skos/core#prefLabel>
+                "Fruit, nuts, fruit-peel and other parts of plants: preserved by sugar (drained, glace or crystallised)" .
+
+<https://data.projekt-provider.de/baci/product/HS92/121190>
+        a       <http://www.w3.org/2004/02/skos/core#Concept>;
+        <http://www.w3.org/2004/02/skos/core#inScheme>
+                <https://data.projekt-provider.de/baci/scheme/HS92>;
+        <http://www.w3.org/2004/02/skos/core#notation>
+                "121190";
+        <http://www.w3.org/2004/02/skos/core#prefLabel>
+                "Plants and parts (including seeds and fruits) n.e.s. in heading no. 1211, used primarily in perfumery, pharmacy or for insecticidal, fungicidal purposes: fresh or dried, whether or not cut, crushed or powdered" .
+
+<https://data.projekt-provider.de/baci/product/HS92/090910>
+        a       <http://www.w3.org/2004/02/skos/core#Concept>;
+        <http://www.w3.org/2004/02/skos/core#inScheme>
+                <https://data.projekt-provider.de/baci/scheme/HS92>;
+        <http://www.w3.org/2004/02/skos/core#notation>
+                "090910";
+        <http://www.w3.org/2004/02/skos/core#prefLabel>
+                "Spices: anise or badian seeds" .
+
+<https://data.projekt-provider.de/baci/unit/tonne>
+        a       <http://www.w3.org/2004/02/skos/core#Concept>;
+        <http://www.w3.org/2004/02/skos/core#notation>
+                "tonne";
+        <http://www.w3.org/2004/02/skos/core#prefLabel>
+                "Metric tonne (1000 kilograms)" .
+
+<https://data.projekt-provider.de/baci/area/76>
+        a       <http://www.w3.org/2004/02/skos/core#Concept>;
+        <http://www.w3.org/2004/02/skos/core#inScheme>
+                <https://data.projekt-provider.de/baci/scheme/area>;
+        <http://www.w3.org/2004/02/skos/core#notation>
+                "76";
+        <http://www.w3.org/2004/02/skos/core#prefLabel>
+                "Brazil";
+        <https://schema.projekt-provider.de/baci#sourceIso2>
+                "BR";
+        <https://schema.projekt-provider.de/baci#sourceIso3>
+                "BRA";
+        <https://schema.projekt-provider.de/global#hasCountry>
+                <https://data.projekt-provider.de/country/BRA> .
+
+<https://data.projekt-provider.de/baci/area/8>
+        a       <http://www.w3.org/2004/02/skos/core#Concept>;
+        <http://www.w3.org/2004/02/skos/core#inScheme>
+                <https://data.projekt-provider.de/baci/scheme/area>;
+        <http://www.w3.org/2004/02/skos/core#notation>
+                "8";
+        <http://www.w3.org/2004/02/skos/core#prefLabel>
+                "Albania";
+        <https://schema.projekt-provider.de/baci#sourceIso2>
+                "AL";
+        <https://schema.projekt-provider.de/baci#sourceIso3>
+                "ALB";
+        <https://schema.projekt-provider.de/global#hasCountry>
+                <https://data.projekt-provider.de/country/ALB> .
+
+<https://data.projekt-provider.de/baci/unit/USD>
+        a       <http://www.w3.org/2004/02/skos/core#Concept>;
+        <http://www.w3.org/2004/02/skos/core#notation>
+                "USD";
+        <http://www.w3.org/2004/02/skos/core#prefLabel>
+                "US dollars (trade value uses unit multiplier 3)" .
+
+<https://data.projekt-provider.de/baci/observation/HS92_V202601/2024-8-76-401699>
+        <http://purl.org/linked-data/cube#dataSet>
+                <https://data.projekt-provider.de/baci/dataset/HS92_V202601>;
+        <http://purl.org/linked-data/sdmx/2009/attribute#unitMeasure>
+                <https://data.projekt-provider.de/baci/unit/USD>;
+        <https://schema.projekt-provider.de/baci#exporter>
+                <https://data.projekt-provider.de/baci/area/8>;
+        <https://schema.projekt-provider.de/baci#importer>
+                <https://data.projekt-provider.de/baci/area/76>;
+        <https://schema.projekt-provider.de/baci#product>
+                <https://data.projekt-provider.de/baci/product/HS92/401699>;
+        <https://schema.projekt-provider.de/baci#quantityUnit>
+                <https://data.projekt-provider.de/baci/unit/tonne> .
+
+<https://data.projekt-provider.de/baci/observation/HS92_V202601/2024-8-76-401693>
+        <http://purl.org/linked-data/cube#dataSet>
+                <https://data.projekt-provider.de/baci/dataset/HS92_V202601>;
+        <http://purl.org/linked-data/sdmx/2009/attribute#unitMeasure>
+                <https://data.projekt-provider.de/baci/unit/USD>;
+        <https://schema.projekt-provider.de/baci#exporter>
+                <https://data.projekt-provider.de/baci/area/8>;
+        <https://schema.projekt-provider.de/baci#importer>
+                <https://data.projekt-provider.de/baci/area/76>;
+        <https://schema.projekt-provider.de/baci#product>
+                <https://data.projekt-provider.de/baci/product/HS92/401693>;
+        <https://schema.projekt-provider.de/baci#quantityUnit>
+                <https://data.projekt-provider.de/baci/unit/tonne> .
+
+<https://data.projekt-provider.de/baci/observation/HS92_V202601/2024-8-76-400930>
+        <http://purl.org/linked-data/cube#dataSet>
+                <https://data.projekt-provider.de/baci/dataset/HS92_V202601>;
+        <http://purl.org/linked-data/sdmx/2009/attribute#unitMeasure>
+                <https://data.projekt-provider.de/baci/unit/USD>;
+        <https://schema.projekt-provider.de/baci#exporter>
+                <https://data.projekt-provider.de/baci/area/8>;
+        <https://schema.projekt-provider.de/baci#importer>
+                <https://data.projekt-provider.de/baci/area/76>;
+        <https://schema.projekt-provider.de/baci#product>
+                <https://data.projekt-provider.de/baci/product/HS92/400930>;
+        <https://schema.projekt-provider.de/baci#quantityUnit>
+                <https://data.projekt-provider.de/baci/unit/tonne> .
+
+<https://data.projekt-provider.de/baci/observation/HS92_V202601/2024-8-76-392690>
+        <http://purl.org/linked-data/cube#dataSet>
+                <https://data.projekt-provider.de/baci/dataset/HS92_V202601>;
+        <http://purl.org/linked-data/sdmx/2009/attribute#unitMeasure>
+                <https://data.projekt-provider.de/baci/unit/USD>;
+        <https://schema.projekt-provider.de/baci#exporter>
+                <https://data.projekt-provider.de/baci/area/8>;
+        <https://schema.projekt-provider.de/baci#importer>
+                <https://data.projekt-provider.de/baci/area/76>;
+        <https://schema.projekt-provider.de/baci#product>
+                <https://data.projekt-provider.de/baci/product/HS92/392690>;
+        <https://schema.projekt-provider.de/baci#quantityUnit>
+                <https://data.projekt-provider.de/baci/unit/tonne> .
+
+<https://data.projekt-provider.de/baci/observation/HS92_V202601/2024-8-76-392350>
+        <http://purl.org/linked-data/cube#dataSet>
+                <https://data.projekt-provider.de/baci/dataset/HS92_V202601>;
+        <http://purl.org/linked-data/sdmx/2009/attribute#unitMeasure>
+                <https://data.projekt-provider.de/baci/unit/USD>;
+        <https://schema.projekt-provider.de/baci#exporter>
+                <https://data.projekt-provider.de/baci/area/8>;
+        <https://schema.projekt-provider.de/baci#importer>
+                <https://data.projekt-provider.de/baci/area/76>;
+        <https://schema.projekt-provider.de/baci#product>
+                <https://data.projekt-provider.de/baci/product/HS92/392350>;
+        <https://schema.projekt-provider.de/baci#quantityUnit>
+                <https://data.projekt-provider.de/baci/unit/tonne> .
+
+<https://data.projekt-provider.de/baci/observation/HS92_V202601/2024-8-76-330129>
+        <http://purl.org/linked-data/cube#dataSet>
+                <https://data.projekt-provider.de/baci/dataset/HS92_V202601>;
+        <http://purl.org/linked-data/sdmx/2009/attribute#unitMeasure>
+                <https://data.projekt-provider.de/baci/unit/USD>;
+        <https://schema.projekt-provider.de/baci#exporter>
+                <https://data.projekt-provider.de/baci/area/8>;
+        <https://schema.projekt-provider.de/baci#importer>
+                <https://data.projekt-provider.de/baci/area/76>;
+        <https://schema.projekt-provider.de/baci#product>
+                <https://data.projekt-provider.de/baci/product/HS92/330129>;
+        <https://schema.projekt-provider.de/baci#quantityUnit>
+                <https://data.projekt-provider.de/baci/unit/tonne> .
+
+<https://data.projekt-provider.de/baci/observation/HS92_V202601/2024-8-76-251512>
+        <http://purl.org/linked-data/cube#dataSet>
+                <https://data.projekt-provider.de/baci/dataset/HS92_V202601>;
+        <http://purl.org/linked-data/sdmx/2009/attribute#unitMeasure>
+                <https://data.projekt-provider.de/baci/unit/USD>;
+        <https://schema.projekt-provider.de/baci#exporter>
+                <https://data.projekt-provider.de/baci/area/8>;
+        <https://schema.projekt-provider.de/baci#importer>
+                <https://data.projekt-provider.de/baci/area/76>;
+        <https://schema.projekt-provider.de/baci#product>
+                <https://data.projekt-provider.de/baci/product/HS92/251512>;
+        <https://schema.projekt-provider.de/baci#quantityUnit>
+                <https://data.projekt-provider.de/baci/unit/tonne> .
+
+<https://data.projekt-provider.de/baci/observation/HS92_V202601/2024-8-76-200600>
+        <http://purl.org/linked-data/cube#dataSet>
+                <https://data.projekt-provider.de/baci/dataset/HS92_V202601>;
+        <http://purl.org/linked-data/sdmx/2009/attribute#unitMeasure>
+                <https://data.projekt-provider.de/baci/unit/USD>;
+        <https://schema.projekt-provider.de/baci#exporter>
+                <https://data.projekt-provider.de/baci/area/8>;
+        <https://schema.projekt-provider.de/baci#importer>
+                <https://data.projekt-provider.de/baci/area/76>;
+        <https://schema.projekt-provider.de/baci#product>
+                <https://data.projekt-provider.de/baci/product/HS92/200600>;
+        <https://schema.projekt-provider.de/baci#quantityUnit>
+                <https://data.projekt-provider.de/baci/unit/tonne> .
+
+<https://data.projekt-provider.de/baci/observation/HS92_V202601/2024-8-76-121190>
+        <http://purl.org/linked-data/cube#dataSet>
+                <https://data.projekt-provider.de/baci/dataset/HS92_V202601>;
+        <http://purl.org/linked-data/sdmx/2009/attribute#unitMeasure>
+                <https://data.projekt-provider.de/baci/unit/USD>;
+        <https://schema.projekt-provider.de/baci#exporter>
+                <https://data.projekt-provider.de/baci/area/8>;
+        <https://schema.projekt-provider.de/baci#importer>
+                <https://data.projekt-provider.de/baci/area/76>;
+        <https://schema.projekt-provider.de/baci#product>
+                <https://data.projekt-provider.de/baci/product/HS92/121190>;
+        <https://schema.projekt-provider.de/baci#quantityUnit>
+                <https://data.projekt-provider.de/baci/unit/tonne> .
+
+<https://data.projekt-provider.de/baci/dataset/HS92_V202601>
+        a       <http://purl.org/linked-data/cube#DataSet>;
+        <http://purl.org/dc/terms/bibliographicCitation>
+                "Gaulier, G. and Zignago, S. (2010). BACI: International Trade Database at the Product-Level. The 1994-2007 Version. CEPII Working Paper No. 2010-23. Dataset: BACI HS92 version 202601.";
+        <http://purl.org/dc/terms/description>
+                "Selected years of BACI HS92 V202601. Trade values are in thousand USD; quantities in metric tonnes. Missing quantities are omitted. Country links follow the documented conservative source-code policy.";
+        <http://purl.org/dc/terms/identifier>
+                "BACI-HS92-V202601";
+        <http://purl.org/dc/terms/license>
+                <https://www.etalab.gouv.fr/licence-ouverte-open-licence/>;
+        <http://purl.org/dc/terms/publisher>
+                <https://www.cepii.fr/>;
+        <http://purl.org/dc/terms/source>
+                <https://www.cepii.fr/CEPII/en/bdd_modele/bdd_modele_item.asp?id=37>;
+        <http://purl.org/dc/terms/title>
+                "CEPII BACI HS92, version 202601";
+        <http://purl.org/linked-data/cube#structure>
+                <https://data.projekt-provider.de/baci/structure/HS92_V202601> .
+
+<https://data.projekt-provider.de/baci/observation/HS92_V202601/2024-8-76-090910>
+        <http://purl.org/linked-data/cube#dataSet>
+                <https://data.projekt-provider.de/baci/dataset/HS92_V202601>;
+        <http://purl.org/linked-data/sdmx/2009/attribute#unitMeasure>
+                <https://data.projekt-provider.de/baci/unit/USD>;
+        <https://schema.projekt-provider.de/baci#exporter>
+                <https://data.projekt-provider.de/baci/area/8>;
+        <https://schema.projekt-provider.de/baci#importer>
+                <https://data.projekt-provider.de/baci/area/76>;
+        <https://schema.projekt-provider.de/baci#product>
+                <https://data.projekt-provider.de/baci/product/HS92/090910>;
+        <https://schema.projekt-provider.de/baci#quantityUnit>
+                <https://data.projekt-provider.de/baci/unit/tonne> .
+
+}
+

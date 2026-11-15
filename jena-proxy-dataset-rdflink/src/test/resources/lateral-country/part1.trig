@@ -1,0 +1,22 @@
+#<urn:service:static> {
+
+<https://data.projekt-provider.de/country/BRA>
+        a       <https://schema.projekt-provider.de/global#Country>;
+        <http://www.w3.org/2000/01/rdf-schema#label>
+                "Brazil"@en;
+        <http://www.w3.org/2002/07/owl#sameAs>
+                <http://www.wikidata.org/entity/Q155>;
+        <http://www.w3.org/2004/02/skos/core#altLabel>
+                "Brasil"@en , "Federative Republic of Brazil"@en;
+        <https://schema.projekt-provider.de/global#hasAlternativeName>
+                "Brasil"@en , "Federative Republic of Brazil"@en;
+        <https://schema.projekt-provider.de/global#hasIso2Code>
+                "BR";
+        <https://schema.projekt-provider.de/global#hasIso3Code>
+                "BRA";
+        <https://schema.projekt-provider.de/global#hasName>
+                "Brazil"@en;
+        <https://schema.projekt-provider.de/global#osmLink>
+                <https://www.openstreetmap.org/relation/59470> .
+#}
+
