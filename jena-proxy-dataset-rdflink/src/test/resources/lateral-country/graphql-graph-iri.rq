@@ -1,0 +1,42 @@
+SELECT  ?state ?v_0 ?v_1 ?v_2
+WHERE
+  {   { BIND("state_0" AS ?state)}
+    UNION
+      { { SELECT  *
+          WHERE
+            { ?field1_s  a  <https://schema.projekt-provider.de/global#Country> }
+          LIMIT   1
+        }
+        LATERAL
+          {   { BIND("state_1" AS ?state)
+                BIND(?field1_s AS ?v_0)
+              }
+            UNION
+              { BIND("state_2" AS ?state)
+                BIND(?field1_s AS ?field1_field1_bindvar_1)
+                BIND(?field1_field1_bindvar_1 AS ?v_0)
+              }
+            UNION
+              { GRAPH <urn:service:baci>
+                  { { SELECT  *
+                      WHERE
+                        { ?field1_field2_s
+                                    <https://schema.projekt-provider.de/baci#importer>  ?field1_field2_x .
+                          ?field1_field2_x
+                                    <https://schema.projekt-provider.de/global#hasCountry>  ?field1_s
+                        }
+                      LIMIT   1
+                    }
+                    LATERAL
+                      {   { BIND("state_3" AS ?state)
+                            BIND(?field1_s AS ?v_0)
+                            BIND(?field1_field2_s AS ?v_1)
+                            BIND(?field1_field2_x AS ?v_2)
+                          }
+                        UNION
+                          { BIND("state_4" AS ?state)
+                            BIND(?field1_field2_s AS ?field1_field2_field1_bindvar_1)
+                            BIND(?field1_field2_field1_bindvar_1 AS ?v_0)
+                          }}
+                  }}}
+      }}
